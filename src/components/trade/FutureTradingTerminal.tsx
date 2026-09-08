@@ -27,14 +27,7 @@ import { useTrading } from '../../context/TradingContext';
 import { BillingTimeOption, FutureContractPosition } from '../../types';
 import { FutureOrderHistoryPanel } from './FutureOrderHistoryPanel';
 
-// The 7 strict contract selection tiers and rules:
-// Level 30 (30 Days): 100 USDT, 10%
-// Level 60 (60 Days): 10,000 USDT, 15%
-// Level 90 (90 Days): 50,000 USDT, 20%
-// Level 120 (120 Days): 100,000 USDT, 30%
-// Level 180 (180 Days): 250,000 USDT, 40%
-// Level 240 (240 Days): 400,000 USDT, 50%
-// Level 360 (360 Days): 500,000 USDT, 70%
+// The 7 fixed contract rules: level, investment amount, and reward rate.
 export const CONTRACT_TIERS: BillingTimeOption[] = [
   { level: 30, days: 30, amount: 100, profitRate: 0.10, displayRate: '10%', label: 'Level 30' },
   { level: 60, days: 60, amount: 10000, profitRate: 0.15, displayRate: '15%', label: 'Level 60' },
@@ -379,11 +372,7 @@ export const FutureTradingTerminal: React.FC = () => {
       const res = await placeFutureContract({
         symbol: selectedSymbolStr,
         direction,
-        investment: effectiveInvestment,
-        level: selectedTier.level,
-        billingDays: selectedTier.days,
-        billingSeconds: (selectedTier.days || 30) * 86400,
-        profitRate: selectedTier.profitRate
+        level: selectedTier.level
       });
 
       if (res.success) {
@@ -934,7 +923,7 @@ export const FutureTradingTerminal: React.FC = () => {
                       <thead>
                         <tr className={`border-b text-xs text-slate-400 uppercase ${themeMode === 'light' ? 'border-slate-100 bg-slate-50/50' : 'border-slate-800 bg-[#060a14]'}`}>
                           <th className="py-2 px-2 font-medium">Order Number</th>
-                          <th className="py-2 font-medium">Tier / Duration</th>
+                          <th className="py-2 font-medium">Level</th>
                           <th className="py-2 font-medium">Pair</th>
                           <th className="py-2 font-medium">Direction</th>
                           <th className="py-2 font-medium">Strike Price</th>
@@ -959,7 +948,7 @@ export const FutureTradingTerminal: React.FC = () => {
                               </td>
                               <td className="py-3">
                                 <span className="px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/50 text-purple-300 font-bold text-xs">
-                                  Level {pos.level || 30} ({pos.billingDays || 30}D)
+                                  Level {pos.level || 30}
                                 </span>
                               </td>
                               <td className="py-3 font-bold text-slate-900 dark:text-white">
@@ -1129,7 +1118,7 @@ export const FutureTradingTerminal: React.FC = () => {
                   Contract Tier
                 </label>
                 <span className="text-xs font-mono text-emerald-400 font-semibold">
-                  Level {selectedTier.days}D
+                  Level {selectedTier.level}
                 </span>
               </div>
 
@@ -1206,7 +1195,7 @@ export const FutureTradingTerminal: React.FC = () => {
                   </div>
                   <div>
                     <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
-                      {selectedTier.label} ({selectedTier.days} Days)
+                      {selectedTier.label}
                     </span>
                   </div>
                 </div>
@@ -1214,7 +1203,7 @@ export const FutureTradingTerminal: React.FC = () => {
                 <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-start space-x-1.5 text-xs font-mono text-slate-400">
                   <ShieldCheck className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    Fixed Amount Rule: Investment amount is fixed and non-editable. Tied strictly to Level {selectedTier.level} ({selectedTier.days} Days) with a {selectedTier.displayRate} reward.
+                    Fixed Amount Rule: Investment amount is fixed and non-editable. It is tied strictly to Level {selectedTier.level} with a {selectedTier.displayRate} reward.
                   </span>
                 </div>
               </div>
@@ -1224,7 +1213,7 @@ export const FutureTradingTerminal: React.FC = () => {
             <div className={`p-3.5 rounded-xl border text-xs font-mono space-y-2 ${themeMode === 'light' ? 'bg-[#F4F4F5] border-slate-200 text-slate-600' : 'bg-[#060a14] border-slate-800 text-slate-300'}`}>
               <div className="flex items-center justify-between">
                 <span>Contract Tier:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{selectedTier.label} ({selectedTier.days} Days)</span>
+                <span className="font-bold text-slate-900 dark:text-white">{selectedTier.label}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Specific Investment:</span>
@@ -1318,23 +1307,21 @@ export const FutureTradingTerminal: React.FC = () => {
                   <span>Strict 7 Selections Policy</span>
                 </div>
                 <p className="text-xs font-mono text-slate-300 leading-relaxed">
-                  Per system rules, future trading provides exactly 7 fixed contract tiers. The specific investment amount is non-editable and locked directly to the selected tier level and billing time.
+                  Future trading provides exactly 7 fixed contract levels. Each level determines the fixed investment amount and reward rate.
                 </p>
               </div>
 
               {/* 7 Tiers reference table */}
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden font-mono text-xs">
-                <div className="grid grid-cols-4 py-2 px-3 bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-400 uppercase">
+                <div className="grid grid-cols-3 py-2 px-3 bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-400 uppercase">
                   <span>Level</span>
-                  <span>Billing Period</span>
                   <span className="text-right">Specific Amount</span>
                   <span className="text-right">Reward Rate</span>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-48 overflow-y-auto">
                   {CONTRACT_TIERS.map(tier => (
-                    <div key={tier.level} className="grid grid-cols-4 py-2 px-3 items-center hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <div key={tier.level} className="grid grid-cols-3 py-2 px-3 items-center hover:bg-slate-50 dark:hover:bg-slate-800/40">
                       <span className="font-bold text-purple-400">Level {tier.level}</span>
-                      <span className="text-slate-300">{tier.days} Days</span>
                       <span className="text-right font-bold text-slate-100">{tier.amount.toLocaleString()} USDT</span>
                       <span className="text-right font-bold text-emerald-400">+{tier.displayRate}</span>
                     </div>

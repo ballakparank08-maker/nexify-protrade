@@ -207,16 +207,22 @@ interface TradingContextType {
   placeFutureContract: (params: { 
     symbol: string; 
     direction: 'bullish' | 'bearish'; 
-    investment: number; 
-    level?: number;
-    billingDays?: number;
-    billingSeconds?: number; 
-    profitRate: number; 
+    level: number;
   }) => Promise<{ success: boolean; message: string; position?: FutureContractPosition }>;
   settleFuturePositionEarly: (positionId: string) => { success: boolean; message: string };
   cancelFuturePosition: (positionId: string) => { success: boolean; message: string };
   clearFutureHistory: () => void;
 }
+
+const FUTURE_CONTRACT_RULES = {
+  30: { amount: 100, profitRate: 0.10 },
+  60: { amount: 10000, profitRate: 0.15 },
+  90: { amount: 50000, profitRate: 0.20 },
+  120: { amount: 100000, profitRate: 0.30 },
+  180: { amount: 250000, profitRate: 0.40 },
+  240: { amount: 400000, profitRate: 0.50 },
+  360: { amount: 500000, profitRate: 0.70 }
+} as const;
 
 const INITIAL_PRICE_ALERTS: PriceAlert[] = [
   {
@@ -1046,18 +1052,16 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const placeFutureContract = useCallback(async (params: {
     symbol: string;
     direction: 'bullish' | 'bearish';
-    investment: number;
-    level?: number;
-    billingDays?: number;
-    billingSeconds?: number;
-    profitRate: number;
+    level: number;
   }) => {
-    const { symbol, direction, investment, level = 30, billingDays = 30, profitRate } = params;
-    const durationSeconds = params.billingSeconds ?? (billingDays * 86400);
-
-    if (investment <= 0) {
-      return { success: false, message: 'Investment amount must be greater than zero.' };
+    const { symbol, direction, level } = params;
+    const rule = FUTURE_CONTRACT_RULES[level as keyof typeof FUTURE_CONTRACT_RULES];
+    if (!rule) {
+      return { success: false, message: 'Select one of the 7 available contract levels.' };
     }
+    const { amount: investment, profitRate } = rule;
+    const billingDays = level;
+    const durationSeconds = billingDays * 86400;
 
     if (wallet.usdtBalance < investment) {
       return { 
@@ -1125,7 +1129,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     return {
       success: true,
-      message: `Contract order ${orderNum} opened for Level ${level} (${billingDays} Days) on ${symbol} (${direction.toUpperCase()}) with ${investment.toLocaleString()} USDT!`,
+      message: `Contract order ${orderNum} opened for Level ${level} on ${symbol} (${direction.toUpperCase()}) with ${investment.toLocaleString()} USDT.`,
       position: newPosition
     };
   }, [wallet.usdtBalance, cryptoAssets, selectedAsset]);

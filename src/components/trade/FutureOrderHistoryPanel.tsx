@@ -138,7 +138,6 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
       'Symbol',
       'Direction',
       'Contract Level',
-      'Billing Days',
       'Strike Price',
       'Settlement Price',
       'Investment (USDT)',
@@ -162,7 +161,6 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
         item.symbol,
         item.direction.toUpperCase(),
         `Level ${item.level || 30}`,
-        `${item.billingDays || 30} Days`,
         item.strikePrice.toFixed(2),
         item.settlementPrice ? item.settlementPrice.toFixed(2) : item.strikePrice.toFixed(2),
         item.investment.toFixed(2),
@@ -367,7 +365,7 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
                 isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-[#060a14]'
               }`}>
                 <th className="py-3 px-3 font-semibold">Order Number</th>
-                <th className="py-3 px-2 font-semibold">Tier / Duration</th>
+                <th className="py-3 px-2 font-semibold">Level</th>
                 <th className="py-3 px-2 font-semibold">Pair</th>
                 <th className="py-3 px-2 font-semibold">Direction</th>
                 <th className="py-3 px-2 font-semibold">Strike Price</th>
@@ -400,10 +398,10 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
                       </div>
                     </td>
 
-                    {/* Tier / Duration */}
+                    {/* Contract level */}
                     <td className="py-3.5 px-2">
                       <span className="px-2.5 py-1 rounded-md bg-purple-950/60 border border-purple-800/50 text-purple-300 font-bold text-xs">
-                        Level {item.level || 30} ({item.billingDays || 30}D)
+                        Level {item.level || 30}
                       </span>
                     </td>
 
@@ -611,7 +609,7 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
               <div className="p-3 rounded-xl bg-[#060a14] border border-white/5 space-y-1">
                 <span className="text-slate-400">Contract Tier</span>
                 <p className="font-bold text-purple-300">
-                  Level {selectedTrade.level || 30} ({selectedTrade.billingDays || 30} Days)
+                  Level {selectedTrade.level || 30}
                 </p>
               </div>
 
