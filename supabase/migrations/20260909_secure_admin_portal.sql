@@ -1,3 +1,4 @@
+-- Run this migration before creating users in Supabase Authentication.
 create type public.app_role as enum ('trader', 'admin');
 
 create table public.profiles (
