@@ -916,9 +916,6 @@ export const FutureTradingTerminal: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="font-mono font-semibold text-slate-300">{pos.orderNumber}</span>
                               <span className="rounded bg-purple-950/60 px-2 py-0.5 font-mono font-bold text-purple-300">Level {pos.level || 30}</span>
-                              <span className={`rounded px-2 py-0.5 font-bold ${pendingReview ? 'bg-amber-950/80 text-amber-300' : 'bg-cyan-950/80 text-cyan-300'}`}>
-                                {pendingReview ? 'The market settles within a few seconds' : 'ACTIVE'}
-                              </span>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-slate-400">
                               <div><span className="block text-[10px] uppercase">Pair</span><span className="font-semibold text-white">{pos.symbol}</span></div>
