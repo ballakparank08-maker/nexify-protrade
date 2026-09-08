@@ -24,7 +24,8 @@ import {
   CompletedSpotTrade,
   UserSession,
   SecurityAuditEntry,
-  FutureContractPosition
+  FutureContractPosition,
+  ClientAccount
 } from '../types';
 import { verifyTOTP } from '../utils/totp';
 import { 
@@ -122,6 +123,8 @@ interface TradingContextType {
   // Admin Controls
   kycUsers: KYCUserRecord[];
   updateKycStatus: (id: string, status: 'verified' | 'rejected') => void;
+  clientAccounts: ClientAccount[];
+  updateClientAccount: (id: string, updates: ClientAccount) => { success: boolean; message: string };
   circuitBreakerActive: boolean;
   toggleCircuitBreaker: () => void;
   engineLatencyMs: number;
@@ -576,6 +579,17 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Admin states
   const [kycUsers, setKycUsers] = useState<KYCUserRecord[]>(INITIAL_KYC_USERS);
+  const [clientAccounts, setClientAccounts] = useState<ClientAccount[]>(() => {
+    const saved = localStorage.getItem('prism_client_accounts');
+    if (saved) return JSON.parse(saved);
+
+    return INITIAL_KYC_USERS.map((user, index) => ({
+      ...user,
+      usdtBalance: [28450, 12500, 8750][index] || 0,
+      assets: index === 0 ? { BTC: 0.8542, ETH: 6.25, SOL: 45.8 } : {},
+      accountLocked: false
+    }));
+  });
   const [circuitBreakerActive, setCircuitBreakerActive] = useState<boolean>(false);
   const [engineLatencyMs, setEngineLatencyMs] = useState<number>(4.2);
 
@@ -820,6 +834,10 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     localStorage.setItem('prism_wallet', JSON.stringify(wallet));
   }, [wallet]);
+
+  useEffect(() => {
+    localStorage.setItem('prism_client_accounts', JSON.stringify(clientAccounts));
+  }, [clientAccounts]);
 
   useEffect(() => {
     localStorage.setItem('prism_assets', JSON.stringify(cryptoAssets));
@@ -2366,6 +2384,36 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Admin controls
   const updateKycStatus = (id: string, status: 'verified' | 'rejected') => {
     setKycUsers(prev => prev.map(u => u.id === id ? { ...u, kycStatus: status } : u));
+    setClientAccounts(prev => prev.map(account => account.id === id ? { ...account, kycStatus: status } : account));
+  };
+
+  const updateClientAccount = (id: string, updates: ClientAccount) => {
+    if (currentUser?.role !== 'admin') {
+      return { success: false, message: 'Administrator authorization is required to update client accounts.' };
+    }
+    if (!updates.id.trim() || !updates.fullName.trim() || !updates.email.trim()) {
+      return { success: false, message: 'Client ID, name, and email are required.' };
+    }
+    if (!Number.isFinite(updates.usdtBalance) || updates.usdtBalance < 0 || Object.values(updates.assets).some(balance => !Number.isFinite(balance) || balance < 0)) {
+      return { success: false, message: 'Balances must be valid, non-negative numbers.' };
+    }
+    if (updates.id !== id && clientAccounts.some(account => account.id === updates.id)) {
+      return { success: false, message: 'That client ID is already in use.' };
+    }
+
+    setClientAccounts(prev => prev.map(account => account.id === id ? updates : account));
+    setKycUsers(prev => prev.map(user => user.id === id ? {
+      id: updates.id,
+      fullName: updates.fullName,
+      email: updates.email,
+      walletAddress: updates.walletAddress,
+      country: updates.country,
+      tier: updates.tier,
+      kycStatus: updates.kycStatus,
+      submittedDate: updates.submittedDate,
+      tradingVolumeUsd: updates.tradingVolumeUsd
+    } : user));
+    return { success: true, message: `Updated client account for ${updates.fullName}.` };
   };
 
   const toggleCircuitBreaker = () => {
@@ -2529,6 +2577,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleAutoCompound,
         kycUsers,
         updateKycStatus,
+        clientAccounts,
+        updateClientAccount,
         circuitBreakerActive,
         toggleCircuitBreaker,
         engineLatencyMs,

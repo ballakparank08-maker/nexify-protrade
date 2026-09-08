@@ -20,6 +20,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
+import { ClientAccount } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
   const { 
@@ -29,6 +30,8 @@ export const AdminDashboard: React.FC = () => {
     toggleCircuitBreaker, 
     engineLatencyMs,
     transactions,
+    clientAccounts,
+    updateClientAccount,
     futurePositions,
     settleFuturePositionByAdmin,
     setCurrentDomain,
@@ -42,7 +45,36 @@ export const AdminDashboard: React.FC = () => {
   const [filterKyc, setFilterKyc] = useState<'all' | 'pending_review' | 'verified' | 'rejected'>('all');
   const [searchKyc, setSearchKyc] = useState('');
   const [adminActionMsg, setAdminActionMsg] = useState<string | null>(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientDraft, setClientDraft] = useState<ClientAccount | null>(null);
   const pendingFutureSettlements = futurePositions.filter(position => position.status === 'pending_settlement');
+  const visibleClients = clientAccounts.filter(client => {
+    const query = clientSearch.trim().toLowerCase();
+    return !query || [client.id, client.fullName, client.email, client.walletAddress].some(value => value.toLowerCase().includes(query));
+  });
+  const selectedClient = clientAccounts.find(client => client.id === selectedClientId) || clientAccounts[0];
+  const displayedClient = clientDraft || selectedClient;
+
+  const selectClient = (id: string) => {
+    setSelectedClientId(id);
+    setClientDraft(null);
+  };
+
+  const updateClientDraft = (updates: Partial<ClientAccount>) => {
+    if (displayedClient) setClientDraft({ ...displayedClient, ...updates });
+  };
+
+  const saveClientAccount = () => {
+    if (!displayedClient || !selectedClient) return;
+    const result = updateClientAccount(selectedClient.id, displayedClient);
+    setAdminActionMsg(result.message);
+    if (result.success) {
+      setSelectedClientId(displayedClient.id);
+      setClientDraft(null);
+      addSecurityAuditLog(`Client account ${displayedClient.id} updated by ${currentUser?.email}`, 'success');
+    }
+  };
 
   const verifyFutureContract = (positionId: string, outcome: 'won' | 'lost') => {
     const result = settleFuturePositionByAdmin(positionId, outcome);
@@ -295,6 +327,87 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-purple-800/50 bg-[#090e1d]/90 p-5 backdrop-blur-xl shadow-xl">
+        <div className="flex flex-col gap-3 border-b border-slate-800/70 pb-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center space-x-2">
+            <Sliders className="h-4 w-4 text-purple-400" />
+            <div>
+              <h3 className="text-sm font-bold text-white font-mono">CLIENT ACCOUNT MANAGEMENT</h3>
+              <p className="mt-0.5 text-xs text-slate-400">Manage identity, compliance, wallet address, account status, and balances.</p>
+            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+            <input value={clientSearch} onChange={event => setClientSearch(event.target.value)} placeholder="Search name, client ID, email..." className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 py-2 pl-9 pr-3 font-mono text-xs text-white outline-none focus:border-purple-500 lg:w-64" />
+          </div>
+        </div>
+
+        {clientAccounts.length === 0 || !displayedClient ? (
+          <p className="py-6 text-center font-mono text-xs text-slate-500">No client accounts are available.</p>
+        ) : (
+          <div className="mt-4 grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+            <div className="max-h-96 space-y-2 overflow-y-auto pr-1">
+              {visibleClients.map(client => (
+                <button key={client.id} onClick={() => selectClient(client.id)} className={`w-full rounded-xl border p-3 text-left transition-colors ${selectedClient?.id === client.id ? 'border-purple-500/70 bg-purple-950/40' : 'border-slate-800 bg-[#060a14] hover:border-slate-700'}`}>
+                  <span className="block truncate text-sm font-semibold text-white">{client.fullName}</span>
+                  <span className="block truncate font-mono text-[10px] text-slate-400">{client.id} · {client.email}</span>
+                  <span className={`mt-2 inline-block rounded px-1.5 py-0.5 font-mono text-[10px] font-bold ${client.accountLocked ? 'bg-rose-950/70 text-rose-300' : 'bg-emerald-950/70 text-emerald-300'}`}>{client.accountLocked ? 'LOCKED' : 'ACTIVE'}</span>
+                </button>
+              ))}
+              {visibleClients.length === 0 && <p className="p-3 text-center font-mono text-xs text-slate-500">No matching client.</p>}
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-[#060a14] p-4">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <span className="font-mono text-xs font-bold text-purple-300">Editing {displayedClient.fullName}</span>
+                <label className="flex items-center gap-2 font-mono text-xs text-slate-300">
+                  <input type="checkbox" checked={displayedClient.accountLocked} onChange={event => updateClientDraft({ accountLocked: event.target.checked })} className="accent-rose-500" />
+                  Lock account
+                </label>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {([
+                  ['Client ID', 'id', 'text'],
+                  ['Full name', 'fullName', 'text'],
+                  ['Email', 'email', 'email'],
+                  ['Country', 'country', 'text'],
+                  ['Wallet address', 'walletAddress', 'text'],
+                  ['30-day volume (USD)', 'tradingVolumeUsd', 'number'],
+                  ['USDT balance', 'usdtBalance', 'number']
+                ] as const).map(([label, field, type]) => (
+                  <label key={field} className="block">
+                    <span className="mb-1 block font-mono text-[10px] font-semibold uppercase text-slate-500">{label}</span>
+                    <input type={type} min={type === 'number' ? 0 : undefined} value={displayedClient[field]} onChange={event => updateClientDraft({ [field]: type === 'number' ? Number(event.target.value) : event.target.value } as Partial<ClientAccount>)} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-purple-500" />
+                  </label>
+                ))}
+                {(['BTC', 'ETH', 'SOL'] as const).map(asset => (
+                  <label key={asset} className="block">
+                    <span className="mb-1 block font-mono text-[10px] font-semibold uppercase text-slate-500">{asset} balance</span>
+                    <input type="number" min="0" value={displayedClient.assets[asset] || 0} onChange={event => updateClientDraft({ assets: { ...displayedClient.assets, [asset]: Number(event.target.value) } })} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-purple-500" />
+                  </label>
+                ))}
+                <label className="block">
+                  <span className="mb-1 block font-mono text-[10px] font-semibold uppercase text-slate-500">Client tier</span>
+                  <select value={displayedClient.tier} onChange={event => updateClientDraft({ tier: event.target.value as ClientAccount['tier'] })} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-purple-500">
+                    <option>Tier 1 (Basic)</option><option>Tier 2 (Pro)</option><option>Tier 3 (Institutional)</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block font-mono text-[10px] font-semibold uppercase text-slate-500">KYC status</span>
+                  <select value={displayedClient.kycStatus} onChange={event => updateClientDraft({ kycStatus: event.target.value as ClientAccount['kycStatus'] })} className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-purple-500">
+                    <option value="pending_review">Pending review</option><option value="verified">Verified</option><option value="rejected">Rejected</option>
+                  </select>
+                </label>
+              </div>
+              <div className="mt-4 flex justify-end gap-2 border-t border-slate-800 pt-4">
+                <button onClick={() => setClientDraft(null)} className="rounded-lg border border-slate-700 px-3 py-2 font-mono text-xs font-semibold text-slate-300 hover:bg-slate-800">Discard</button>
+                <button onClick={saveClientAccount} className="rounded-lg bg-purple-600 px-4 py-2 font-mono text-xs font-bold text-white hover:bg-purple-500">Save client changes</button>
+              </div>
+            </div>
           </div>
         )}
       </div>

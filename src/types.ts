@@ -162,6 +162,12 @@ export interface KYCUserRecord {
   tradingVolumeUsd: number;
 }
 
+export interface ClientAccount extends KYCUserRecord {
+  usdtBalance: number;
+  assets: Record<string, number>;
+  accountLocked: boolean;
+}
+
 export interface UserWallet {
   isConnected: boolean;
   address: string | null;
