@@ -29,6 +29,9 @@ import { AppDomain, AppTab } from '../../types';
 import { NexifyLogo } from './NexifyLogo';
 import { MarketTicker } from './MarketTicker';
 
+const logoIconUrl = `${import.meta.env.BASE_URL}logo-icon.png`;
+const fallbackLogoUrl = `${import.meta.env.BASE_URL}logo.png`;
+
 export const Header: React.FC = () => {
   const { 
     currentDomain, 
@@ -199,11 +202,11 @@ export const Header: React.FC = () => {
             className="flex items-center space-x-2.5 cursor-pointer transition hover:opacity-95 group select-none"
           >
             <img 
-              src="/logo-icon.png" 
+              src={logoIconUrl}
               alt="Nexify ProTrade Logo" 
               className="w-8 h-8 object-contain transition-transform group-hover:scale-105 filter drop-shadow-[0_0_8px_rgba(0,240,255,0.4)]" 
               onError={(e) => {
-                e.currentTarget.src = '/logo.png';
+                e.currentTarget.src = fallbackLogoUrl;
               }}
             />
             <div className="flex items-center space-x-1.5 font-black tracking-wider text-base sm:text-lg uppercase">

@@ -1,5 +1,7 @@
 import React from 'react';
 
+const logoIconUrl = `${import.meta.env.BASE_URL}logo-icon.png`;
+
 interface NexifyLogoProps {
   variant?: 'full' | 'icon' | 'text' | 'badge';
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
@@ -38,7 +40,7 @@ export const NexifyLogo: React.FC<NexifyLogoProps> = ({
         />
 
         <img 
-          src="/logo-icon.png" 
+          src={logoIconUrl}
           alt="Nexify ProTrade" 
           className="w-full h-full object-contain relative z-10 filter drop-shadow-[0_2px_8px_rgba(0,240,255,0.4)]"
           onError={(e) => {
