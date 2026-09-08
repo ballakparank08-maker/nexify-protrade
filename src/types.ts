@@ -286,7 +286,7 @@ export interface FutureContractPosition {
   startTime: number; // timestamp ms
   endTime: number; // timestamp ms
   secondsRemaining: number;
-  status: 'active' | 'won' | 'lost' | 'filled' | 'cancelled' | 'canceled';
+  status: 'active' | 'pending_settlement' | 'won' | 'lost' | 'filled' | 'cancelled' | 'canceled';
   pnl?: number;
   fee: number;
   createdAt: string;

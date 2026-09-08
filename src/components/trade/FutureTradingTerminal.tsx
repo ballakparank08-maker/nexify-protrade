@@ -19,8 +19,7 @@ import {
   PlusCircle,
   Sun,
   Moon,
-  ShieldCheck,
-  Play
+  ShieldCheck
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
 import { BillingTimeOption, FutureContractPosition } from '../../types';
@@ -64,7 +63,6 @@ export const FutureTradingTerminal: React.FC = () => {
     futurePositions, 
     futureHistory, 
     placeFutureContract, 
-    settleFuturePositionEarly,
     cancelFuturePosition,
     clearFutureHistory,
     addDemoUsdt
@@ -100,16 +98,6 @@ export const FutureTradingTerminal: React.FC = () => {
       return `${hours}h ${mins}m`;
     }
     return `${mins}m ${secs}s`;
-  };
-
-  // Instant early settlement handler for testing & demonstration
-  const handleSettleEarly = (positionId: string) => {
-    const res = settleFuturePositionEarly(positionId);
-    setOrderToast({
-      message: res.message,
-      type: res.success ? 'success' : 'error'
-    });
-    setTimeout(() => setOrderToast(null), 5000);
   };
 
   // Cancel active position handler (refunds capital & registers as cancelled trade)
@@ -921,31 +909,28 @@ export const FutureTradingTerminal: React.FC = () => {
                   <>
                     <div className="space-y-3 2xl:hidden">
                       {futurePositions.map(pos => {
-                        const isWinNow = pos.direction === 'bullish'
-                          ? livePrice >= pos.strikePrice
-                          : livePrice <= pos.strikePrice;
+                        const pendingReview = pos.status === 'pending_settlement';
 
                         return (
                           <div key={pos.id} className="rounded-xl border border-slate-800 bg-[#060a14] p-3 text-xs">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="font-mono font-semibold text-slate-300">{pos.orderNumber}</span>
                               <span className="rounded bg-purple-950/60 px-2 py-0.5 font-mono font-bold text-purple-300">Level {pos.level || 30}</span>
-                              <span className={`rounded px-2 py-0.5 font-bold ${isWinNow ? 'bg-emerald-950/80 text-emerald-300' : 'bg-rose-950/80 text-rose-300'}`}>
-                                {isWinNow ? 'IN MONEY' : 'OUT OF MONEY'}
+                              <span className={`rounded px-2 py-0.5 font-bold ${pendingReview ? 'bg-amber-950/80 text-amber-300' : 'bg-cyan-950/80 text-cyan-300'}`}>
+                                {pendingReview ? 'AWAITING ADMIN REVIEW' : 'ACTIVE'}
                               </span>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-slate-400">
                               <div><span className="block text-[10px] uppercase">Pair</span><span className="font-semibold text-white">{pos.symbol}</span></div>
                               <div><span className="block text-[10px] uppercase">Direction</span><span className={pos.direction === 'bullish' ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>{pos.direction === 'bullish' ? 'Buy (Call)' : 'Sell (Put)'}</span></div>
-                              <div><span className="block text-[10px] uppercase">Strike / Current</span><span className="font-semibold text-slate-200">${pos.strikePrice.toFixed(2)} / <span className={isWinNow ? 'text-emerald-400' : 'text-rose-400'}>${livePrice.toFixed(2)}</span></span></div>
+                              <div><span className="block text-[10px] uppercase">Reference Price</span><span className="font-semibold text-slate-200">${pos.strikePrice.toFixed(2)}</span></div>
                               <div><span className="block text-[10px] uppercase">Investment</span><span className="font-semibold text-white">{pos.investment.toLocaleString()} USDT</span></div>
                               <div><span className="block text-[10px] uppercase">Est. Payout</span><span className="font-semibold text-emerald-400">+{pos.potentialProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDT</span></div>
-                              <div><span className="block text-[10px] uppercase">Remaining</span><span className="font-semibold text-amber-300">{formatRemainingTime(pos.secondsRemaining)}</span></div>
+                              <div><span className="block text-[10px] uppercase">Status</span><span className={pendingReview ? 'font-semibold text-amber-300' : 'font-semibold text-cyan-300'}>{pendingReview ? 'Awaiting Admin Review' : formatRemainingTime(pos.secondsRemaining)}</span></div>
                             </div>
-                            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-800 pt-3">
+                            {pos.status === 'active' && <div className="mt-3 border-t border-slate-800 pt-3">
                               <button id={`cancel-position-${pos.id}`} onClick={() => handleCancelPosition(pos.id)} className="rounded-lg border border-rose-800/40 bg-rose-950/40 px-3 py-2 font-semibold text-rose-300 transition-colors hover:bg-rose-900/60">Cancel</button>
-                              <button id={`settle-early-${pos.id}`} onClick={() => handleSettleEarly(pos.id)} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-semibold text-slate-200 transition-colors hover:bg-emerald-600 hover:text-white">Settle Now</button>
-                            </div>
+                            </div>}
                           </div>
                         );
                       })}
@@ -959,7 +944,7 @@ export const FutureTradingTerminal: React.FC = () => {
                           <th className="py-2 font-medium">Pair</th>
                           <th className="py-2 font-medium">Direction</th>
                           <th className="py-2 font-medium">Strike Price</th>
-                          <th className="py-2 font-medium">Current Price</th>
+                          <th className="py-2 font-medium">Reference Price</th>
                           <th className="py-2 font-medium">Specific Amount</th>
                           <th className="py-2 font-medium">Est. Payout</th>
                           <th className="py-2 font-medium">Countdown</th>
@@ -969,9 +954,7 @@ export const FutureTradingTerminal: React.FC = () => {
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                         {futurePositions.map(pos => {
-                          const isWinNow = pos.direction === 'bullish' 
-                            ? livePrice >= pos.strikePrice 
-                            : livePrice <= pos.strikePrice;
+                          const pendingReview = pos.status === 'pending_settlement';
 
                           return (
                             <tr key={pos.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
@@ -999,8 +982,8 @@ export const FutureTradingTerminal: React.FC = () => {
                               <td className="py-3 font-semibold text-slate-200">
                                 ${pos.strikePrice.toFixed(2)}
                               </td>
-                              <td className={`py-3 font-semibold ${isWinNow ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                ${livePrice.toFixed(2)}
+                              <td className="py-3 font-semibold text-slate-200">
+                                ${pos.strikePrice.toFixed(2)}
                               </td>
                               <td className="py-3 font-bold text-slate-800 dark:text-slate-100">
                                 {pos.investment.toLocaleString()} USDT
@@ -1015,16 +998,12 @@ export const FutureTradingTerminal: React.FC = () => {
                                 </span>
                               </td>
                               <td className="py-3">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                  isWinNow 
-                                    ? 'bg-emerald-600 text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]' 
-                                    : 'bg-rose-600 text-white'
-                                }`}>
-                                  {isWinNow ? 'IN MONEY (WIN)' : 'OUT OF MONEY'}
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${pendingReview ? 'bg-amber-950/80 text-amber-300' : 'bg-cyan-950/80 text-cyan-300'}`}>
+                                  {pendingReview ? 'AWAITING ADMIN REVIEW' : 'ACTIVE'}
                                 </span>
                               </td>
                               <td className="py-3 text-right pr-2">
-                                <div className="flex items-center justify-end space-x-1.5">
+                                {pos.status === 'active' && <div className="flex items-center justify-end space-x-1.5">
                                   <button
                                     id={`cancel-position-${pos.id}`}
                                     onClick={() => handleCancelPosition(pos.id)}
@@ -1034,16 +1013,8 @@ export const FutureTradingTerminal: React.FC = () => {
                                     <XCircle className="h-3 w-3" />
                                     <span>Cancel</span>
                                   </button>
-                                  <button
-                                    id={`settle-early-${pos.id}`}
-                                    onClick={() => handleSettleEarly(pos.id)}
-                                    className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white text-xs font-mono font-semibold transition-all border border-slate-700 shadow-sm"
-                                    title="Test contract settlement now against live market price"
-                                  >
-                                    <Play className="h-3 w-3" />
-                                    <span>Settle Now</span>
-                                  </button>
                                 </div>
+                                }
                               </td>
                             </tr>
                           );

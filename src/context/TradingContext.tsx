@@ -210,7 +210,7 @@ interface TradingContextType {
     level: number;
     investment: number;
   }) => Promise<{ success: boolean; message: string; position?: FutureContractPosition }>;
-  settleFuturePositionEarly: (positionId: string) => { success: boolean; message: string };
+  settleFuturePositionByAdmin: (positionId: string, outcome: 'won' | 'lost') => { success: boolean; message: string };
   cancelFuturePosition: (positionId: string) => { success: boolean; message: string };
   clearFutureHistory: () => void;
 }
@@ -1132,26 +1132,20 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [wallet.usdtBalance, cryptoAssets, selectedAsset]);
 
-  const settleFuturePositionEarly = useCallback((positionId: string) => {
+  const settleFuturePositionByAdmin = useCallback((positionId: string, outcome: 'won' | 'lost') => {
+    if (currentUser?.role !== 'admin') {
+      return { success: false, message: 'Administrator authorization is required to settle a contract.' };
+    }
+
     let settledItem: FutureContractPosition | null = null;
-    let wonPayout = 0;
+    let payout = 0;
 
     setFuturePositions(prev => {
       const remaining: FutureContractPosition[] = [];
       prev.forEach(pos => {
-        if (pos.id === positionId) {
-          const currentAsset = cryptoAssets.find(a => pos.symbol.startsWith(a.symbol)) || selectedAsset;
-          const livePrice = currentAsset ? currentAsset.price : pos.currentPrice;
-          const won = pos.direction === 'bullish' 
-            ? livePrice >= pos.strikePrice 
-            : livePrice <= pos.strikePrice;
-
-          const finalStatus: 'won' | 'lost' = won ? 'won' : 'lost';
-          const finalPnl = won ? pos.potentialProfit : -pos.investment;
-
-          if (won) {
-            wonPayout = pos.potentialPayout;
-          }
+        if (pos.id === positionId && pos.status === 'pending_settlement') {
+          const finalPnl = outcome === 'won' ? pos.potentialProfit : -pos.investment;
+          payout = outcome === 'won' ? pos.potentialPayout : 0;
 
           const now = Date.now();
           const settledDate = new Date(now);
@@ -1159,10 +1153,9 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
           settledItem = {
             ...pos,
-            currentPrice: livePrice,
-            settlementPrice: livePrice,
+            settlementPrice: pos.strikePrice,
             secondsRemaining: 0,
-            status: finalStatus,
+            status: outcome,
             pnl: finalPnl,
             settledAt: `Today, ${settledTimeStr}`
           };
@@ -1176,10 +1169,10 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (settledItem) {
       setFutureHistory(prev => [settledItem!, ...prev]);
 
-      if (wonPayout > 0) {
+      if (payout > 0) {
         setWallet(prev => ({
           ...prev,
-          usdtBalance: parseFloat((prev.usdtBalance + wonPayout).toFixed(2))
+          usdtBalance: parseFloat((prev.usdtBalance + payout).toFixed(2))
         }));
 
         const newTx: Transaction = {
@@ -1187,8 +1180,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           txHash: `0x${Math.random().toString(16).substring(2, 10)}...win`,
           type: 'claim_reward',
           asset: 'USDT',
-          amount: wonPayout,
-          usdValue: wonPayout,
+          amount: payout,
+          usdValue: payout,
           status: 'completed',
           network: 'Contract Order Settlement Engine',
           timestamp: 'Just now'
@@ -1198,12 +1191,12 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       return {
         success: true,
-        message: `Contract ${settledItem.orderNumber} settled early! Result: ${settledItem.status.toUpperCase()} (${settledItem.status === 'won' ? `+${settledItem.potentialProfit.toFixed(2)} USDT` : `-${settledItem.investment.toFixed(2)} USDT`})`
+        message: `Contract ${settledItem.orderNumber} verified as ${outcome.toUpperCase()} by an administrator.`
       };
     }
 
     return { success: false, message: 'Position not found' };
-  }, [cryptoAssets, selectedAsset]);
+  }, [currentUser]);
 
   const cancelFuturePosition = useCallback((positionId: string) => {
     let cancelledItem: FutureContractPosition | null = null;
@@ -1212,7 +1205,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setFuturePositions(prev => {
       const remaining: FutureContractPosition[] = [];
       prev.forEach(pos => {
-        if (pos.id === positionId) {
+        if (pos.id === positionId && pos.status === 'active') {
           refundedAmount = pos.investment;
           const now = Date.now();
           const dateObj = new Date(now);
@@ -1267,89 +1260,32 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: false, message: 'Position not found' };
   }, []);
 
-  // Tick interval for active Future positions: updates countdowns and settles expired contracts
+  // Expired contracts await administrator verification; outcomes never use live market prices.
   useEffect(() => {
-    if (futurePositions.length === 0) return;
+    if (!futurePositions.some(pos => pos.status === 'active')) return;
 
     const interval = setInterval(() => {
       const now = Date.now();
-      let hasSettled = false;
-      const settledItems: FutureContractPosition[] = [];
-      let totalWonPayout = 0;
 
       setFuturePositions(prev => {
-        const remaining: FutureContractPosition[] = [];
-
-        prev.forEach(pos => {
-          const currentAsset = cryptoAssets.find(a => pos.symbol.startsWith(a.symbol)) || selectedAsset;
-          const livePrice = currentAsset ? currentAsset.price : pos.currentPrice;
+        return prev.map(pos => {
+          if (pos.status !== 'active') return pos;
           const secondsLeft = Math.max(0, Math.ceil((pos.endTime - now) / 1000));
 
           if (secondsLeft <= 0 || now >= pos.endTime) {
-            hasSettled = true;
-            const settlementPrice = livePrice;
-            const won = pos.direction === 'bullish' 
-              ? settlementPrice >= pos.strikePrice 
-              : settlementPrice <= pos.strikePrice;
-
-            const finalStatus: 'won' | 'lost' = won ? 'won' : 'lost';
-            const finalPnl = won ? pos.potentialProfit : -pos.investment;
-
-            if (won) {
-              totalWonPayout += pos.potentialPayout;
-            }
-
-            const settledDate = new Date(now);
-            const settledTimeStr = `${settledDate.getHours().toString().padStart(2, '0')}:${settledDate.getMinutes().toString().padStart(2, '0')}:${settledDate.getSeconds().toString().padStart(2, '0')}`;
-
-            settledItems.push({
+            return {
               ...pos,
-              currentPrice: livePrice,
-              settlementPrice,
               secondsRemaining: 0,
-              status: finalStatus,
-              pnl: finalPnl,
-              settledAt: `Today, ${settledTimeStr}`
-            });
-          } else {
-            remaining.push({
-              ...pos,
-              currentPrice: livePrice,
-              secondsRemaining: secondsLeft
-            });
+              status: 'pending_settlement'
+            };
           }
+          return { ...pos, secondsRemaining: secondsLeft };
         });
-
-        return remaining;
       });
-
-      if (hasSettled && settledItems.length > 0) {
-        setFutureHistory(prev => [...settledItems, ...prev]);
-
-        if (totalWonPayout > 0) {
-          setWallet(prev => ({
-            ...prev,
-            usdtBalance: parseFloat((prev.usdtBalance + totalWonPayout).toFixed(2))
-          }));
-
-          const newTx: Transaction = {
-            id: `tx-fut-win-${Date.now()}`,
-            txHash: `0x${Math.random().toString(16).substring(2, 10)}...win`,
-            type: 'claim_reward',
-            asset: 'USDT',
-            amount: totalWonPayout,
-            usdValue: totalWonPayout,
-            status: 'completed',
-            network: 'Contract Order Settlement Engine',
-            timestamp: 'Just now'
-          };
-          setTransactions(prev => [newTx, ...prev]);
-        }
-      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [futurePositions, cryptoAssets, selectedAsset]);
+  }, [futurePositions]);
 
 
   // Real-Time Crypto Market Data Feed State (Easy Open WebSockets)
@@ -2658,7 +2594,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         futurePositions,
         futureHistory,
         placeFutureContract,
-        settleFuturePositionEarly,
+        settleFuturePositionByAdmin,
         cancelFuturePosition,
         clearFutureHistory
       }}

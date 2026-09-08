@@ -29,6 +29,8 @@ export const AdminDashboard: React.FC = () => {
     toggleCircuitBreaker, 
     engineLatencyMs,
     transactions,
+    futurePositions,
+    settleFuturePositionByAdmin,
     setCurrentDomain,
     setCurrentTab,
     currentUser,
@@ -40,6 +42,15 @@ export const AdminDashboard: React.FC = () => {
   const [filterKyc, setFilterKyc] = useState<'all' | 'pending_review' | 'verified' | 'rejected'>('all');
   const [searchKyc, setSearchKyc] = useState('');
   const [adminActionMsg, setAdminActionMsg] = useState<string | null>(null);
+  const pendingFutureSettlements = futurePositions.filter(position => position.status === 'pending_settlement');
+
+  const verifyFutureContract = (positionId: string, outcome: 'won' | 'lost') => {
+    const result = settleFuturePositionByAdmin(positionId, outcome);
+    setAdminActionMsg(result.message);
+    if (result.success) {
+      addSecurityAuditLog(`Future contract ${positionId} verified as ${outcome.toUpperCase()} by ${currentUser?.email}`, 'success');
+    }
+  };
 
   // Authoritative Security Enforcement: Only authorized administrators can view the Admin Dashboard
   if (!isAuthenticated || currentUser?.role !== 'admin') {
@@ -245,6 +256,47 @@ export const AdminDashboard: React.FC = () => {
           </div>
           <div className="text-slate-400 text-xs mt-1 font-semibold">Avg turnaround 12m</div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-amber-800/60 bg-[#090e1d]/90 p-5 backdrop-blur-xl shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/70 pb-3">
+          <div className="flex items-center space-x-2">
+            <ShieldCheck className="h-4 w-4 text-amber-400" />
+            <h3 className="text-sm font-bold text-white font-mono">FUTURE CONTRACT SETTLEMENT QUEUE</h3>
+          </div>
+          <span className="rounded-full border border-amber-500/40 bg-amber-950/60 px-2.5 py-1 font-mono text-xs font-bold text-amber-300">
+            {pendingFutureSettlements.length} awaiting review
+          </span>
+        </div>
+
+        {pendingFutureSettlements.length === 0 ? (
+          <p className="py-6 text-center font-mono text-xs text-slate-500">No contracts are awaiting administrator verification.</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {pendingFutureSettlements.map(position => (
+              <div key={position.id} className="flex flex-col gap-4 rounded-xl border border-slate-800 bg-[#060a14] p-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-3">
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Order</span><span className="font-mono font-semibold text-slate-200">{position.orderNumber}</span></div>
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Contract</span><span className="font-semibold text-white">Level {position.level} · {position.symbol}</span></div>
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Direction</span><span className={position.direction === 'bullish' ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>{position.direction === 'bullish' ? 'Buy (Call)' : 'Sell (Put)'}</span></div>
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Investment</span><span className="font-semibold text-white">{position.investment.toLocaleString()} USDT</span></div>
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Win payout</span><span className="font-semibold text-emerald-400">{position.potentialPayout.toLocaleString()} USDT</span></div>
+                  <div><span className="block font-mono text-[10px] uppercase text-slate-500">Expired</span><span className="font-semibold text-amber-300">{position.endTime ? new Date(position.endTime).toLocaleTimeString() : 'Ready for review'}</span></div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button onClick={() => verifyFutureContract(position.id, 'lost')} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-800/60 bg-rose-950/50 px-3 py-2 font-mono text-xs font-bold text-rose-300 transition-colors hover:bg-rose-800 hover:text-white">
+                    <XCircle className="h-3.5 w-3.5" />
+                    Mark Lost
+                  </button>
+                  <button onClick={() => verifyFutureContract(position.id, 'won')} className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 font-mono text-xs font-bold text-white transition-colors hover:bg-emerald-500">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mark Won
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* USER MANAGEMENT & KYC APPROVAL QUEUE */}
