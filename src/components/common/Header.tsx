@@ -107,28 +107,24 @@ export const Header: React.FC = () => {
             >
               https://app.nexifyprotrade.io
             </button>
-            <button
-              id="domain-admin-btn"
-              onClick={() => setCurrentDomain('admin')}
-              className={`rounded-lg px-2.5 py-1 font-mono text-xs transition-all flex items-center space-x-1.5 ${
-                currentDomain === 'admin'
-                  ? 'bg-amber-600/30 text-amber-300 font-semibold border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-              }`}
-              title={currentUser?.role === 'admin' ? "Authorized Institutional Admin Portal" : "Admin Portal (Restricted to Authorized Administrators)"}
-            >
-              <Lock className={`h-3 w-3 ${currentUser?.role === 'admin' ? 'text-emerald-400' : 'text-amber-500/80'}`} />
-              <span>https://admin.nexifyprotrade.io</span>
-              {currentUser?.role === 'admin' ? (
+            {currentUser?.role === 'admin' && (
+              <button
+                id="domain-admin-btn"
+                onClick={() => setCurrentDomain('admin')}
+                className={`rounded-lg px-2.5 py-1 font-mono text-xs transition-all flex items-center space-x-1.5 ${
+                  currentDomain === 'admin'
+                    ? 'bg-amber-600/30 text-amber-300 font-semibold border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+                title="Authorized Institutional Admin Portal"
+              >
+                <Lock className="h-3 w-3 text-emerald-400" />
+                <span>https://admin.nexifyprotrade.io</span>
                 <span className="rounded bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 px-1.5 py-0.5 text-xs font-bold font-mono">
                   ROOT
                 </span>
-              ) : (
-                <span className="hidden sm:inline-block rounded bg-amber-950/60 border border-amber-800/40 text-amber-300 px-1.5 py-0.5 text-xs font-mono font-medium">
-                  AUTH REQ
-                </span>
-              )}
-            </button>
+              </button>
+            )}
           </div>
         </div>
 

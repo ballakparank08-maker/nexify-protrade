@@ -135,9 +135,11 @@ const MainContent: React.FC = () => {
             <button onClick={() => { setCurrentDomain('app'); setCurrentTab('portfolio'); }} className="hover:text-cyan-300 transition-colors">
               app.nexifyprotrade.io
             </button>
-            <button onClick={() => setCurrentDomain('admin')} className="hover:text-cyan-300 transition-colors">
-              admin.nexifyprotrade.io
-            </button>
+            {currentUser?.role === 'admin' && (
+              <button onClick={() => setCurrentDomain('admin')} className="hover:text-cyan-300 transition-colors">
+                admin.nexifyprotrade.io
+              </button>
+            )}
           </div>
 
           <div className="flex items-center space-x-2 text-xs text-slate-300">
