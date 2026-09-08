@@ -19,7 +19,6 @@ import {
   PlusCircle,
   Sun,
   Moon,
-  Lock,
   ShieldCheck,
   Play
 } from 'lucide-react';
@@ -29,13 +28,13 @@ import { FutureOrderHistoryPanel } from './FutureOrderHistoryPanel';
 
 // The 7 fixed contract rules: level, investment amount, and reward rate.
 export const CONTRACT_TIERS: BillingTimeOption[] = [
-  { level: 30, days: 30, amount: 100, profitRate: 0.10, displayRate: '10%', label: 'Level 30' },
-  { level: 60, days: 60, amount: 10000, profitRate: 0.15, displayRate: '15%', label: 'Level 60' },
-  { level: 90, days: 90, amount: 50000, profitRate: 0.20, displayRate: '20%', label: 'Level 90' },
-  { level: 120, days: 120, amount: 100000, profitRate: 0.30, displayRate: '30%', label: 'Level 120' },
-  { level: 180, days: 180, amount: 250000, profitRate: 0.40, displayRate: '40%', label: 'Level 180' },
-  { level: 240, days: 240, amount: 400000, profitRate: 0.50, displayRate: '50%', label: 'Level 240' },
-  { level: 360, days: 360, amount: 500000, profitRate: 0.70, displayRate: '70%', label: 'Level 360' }
+  { level: 30, durationSeconds: 30, amount: 100, profitRate: 0.10, displayRate: '10%', label: 'Level 30' },
+  { level: 60, durationSeconds: 60, amount: 10000, profitRate: 0.15, displayRate: '15%', label: 'Level 60' },
+  { level: 90, durationSeconds: 90, amount: 50000, profitRate: 0.20, displayRate: '20%', label: 'Level 90' },
+  { level: 120, durationSeconds: 120, amount: 100000, profitRate: 0.30, displayRate: '30%', label: 'Level 120' },
+  { level: 180, durationSeconds: 180, amount: 250000, profitRate: 0.40, displayRate: '40%', label: 'Level 180' },
+  { level: 240, durationSeconds: 240, amount: 400000, profitRate: 0.50, displayRate: '50%', label: 'Level 240' },
+  { level: 360, durationSeconds: 360, amount: 500000, profitRate: 0.70, displayRate: '70%', label: 'Level 360' }
 ];
 
 const TIMEFRAMES = ['1M', '5M', '15M', '30M', '1H', '4H', '1D'];
@@ -81,8 +80,9 @@ export const FutureTradingTerminal: React.FC = () => {
   // Bottom Table Tab
   const [activeBottomTab, setActiveBottomTab] = useState<'positions' | 'history'>('positions');
 
-  // 7 Contract Tiers Selection with locked specific amount (cannot change or edit)
+  // 7 Contract Tiers Selection
   const [selectedTier, setSelectedTier] = useState<BillingTimeOption>(CONTRACT_TIERS[0]);
+  const [investmentInput, setInvestmentInput] = useState<string>(CONTRACT_TIERS[0].amount.toString());
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [orderToast, setOrderToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -170,8 +170,7 @@ export const FutureTradingTerminal: React.FC = () => {
     return () => clearInterval(tickInterval);
   }, []);
 
-  // Effective order investment amount - strictly locked to the selected tier's specific amount
-  const effectiveInvestment = selectedTier.amount;
+  const effectiveInvestment = Number(investmentInput) || 0;
 
   // Expected payout calculation
   const expectedProfit = parseFloat((effectiveInvestment * selectedTier.profitRate).toFixed(2));
@@ -354,8 +353,8 @@ export const FutureTradingTerminal: React.FC = () => {
 
   // Handle placing a contract with the selected fixed tier
   const handlePlaceOrder = async (direction: 'bullish' | 'bearish') => {
-    if (effectiveInvestment <= 0) {
-      setOrderToast({ message: 'Invalid contract investment tier selected.', type: 'error' });
+    if (effectiveInvestment < selectedTier.amount) {
+      setOrderToast({ message: `Level ${selectedTier.level} requires a minimum investment of ${selectedTier.amount.toLocaleString()} USDT.`, type: 'error' });
       return;
     }
 
@@ -372,7 +371,8 @@ export const FutureTradingTerminal: React.FC = () => {
       const res = await placeFutureContract({
         symbol: selectedSymbolStr,
         direction,
-        level: selectedTier.level
+        level: selectedTier.level,
+        investment: effectiveInvestment
       });
 
       if (res.success) {
@@ -1126,7 +1126,7 @@ export const FutureTradingTerminal: React.FC = () => {
               <div className={`rounded-xl border overflow-hidden ${themeMode === 'light' ? 'border-slate-200 bg-white' : 'border-slate-800 bg-[#060a14]'}`}>
                 <div className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-2 py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider font-semibold border-b ${themeMode === 'light' ? 'bg-slate-100/70 border-slate-200 text-slate-500' : 'bg-slate-900/80 border-slate-800 text-slate-400'}`}>
                   <div>Level</div>
-                  <div className="text-right">Amount</div>
+                  <div className="text-right">Minimum</div>
                   <div className="text-right">Reward</div>
                 </div>
 
@@ -1138,7 +1138,10 @@ export const FutureTradingTerminal: React.FC = () => {
                         key={tier.level}
                         id={`tier-select-level-${tier.level}`}
                         type="button"
-                        onClick={() => setSelectedTier(tier)}
+                        onClick={() => {
+                          setSelectedTier(tier);
+                          setInvestmentInput(tier.amount.toString());
+                        }}
                         className={`w-full grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-2 py-2.5 px-2 text-[11px] font-mono transition-all text-left ${
                           isSelected
                             ? 'bg-emerald-950/70 text-emerald-300 font-bold border-l-4 border-l-emerald-400 shadow-inner'
@@ -1168,42 +1171,40 @@ export const FutureTradingTerminal: React.FC = () => {
               </div>
             </div>
 
-            {/* 2. Specific Contract Amount (Strictly locked & Non-editable) */}
+            {/* 2. Contract Investment */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className={`block text-xs font-bold font-mono ${themeMode === 'light' ? 'text-slate-800' : 'text-slate-200'}`}>
-                  Specific Amount
+                  Investment Amount
                 </label>
-                <div className="flex items-center space-x-1 text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30">
-                  <Lock className="h-3 w-3" />
-                  <span>Locked / Fixed</span>
+                <div className="text-xs font-mono text-emerald-400">
+                  Min. {selectedTier.amount.toLocaleString()} USDT
                 </div>
               </div>
 
-              {/* Locked specific amount display - NO EDITING ALLOWED */}
               <div className={`p-3.5 rounded-xl border relative overflow-hidden ${
                 themeMode === 'light' 
                   ? 'bg-[#F4F4F5] border-slate-200' 
                   : 'bg-[#060a14] border-slate-800/90'
               }`}>
-                <div className="flex flex-col items-start gap-2">
-                  <div className="flex items-baseline space-x-2">
-                    <span className="text-2xl font-bold font-mono tracking-tight text-emerald-400">
-                      {selectedTier.amount.toLocaleString()}
-                    </span>
-                    <span className="text-xs font-mono font-medium text-slate-400">USDT</span>
-                  </div>
-                  <div>
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
-                      {selectedTier.label}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2">
+                  <input
+                    type="number"
+                    min={selectedTier.amount}
+                    step="any"
+                    inputMode="decimal"
+                    value={investmentInput}
+                    onChange={event => setInvestmentInput(event.target.value)}
+                    className="min-w-0 flex-1 bg-transparent font-mono text-xl font-bold tabular-nums text-emerald-400 outline-none"
+                    aria-label="Contract investment amount in USDT"
+                  />
+                  <span className="text-xs font-mono font-medium text-slate-400">USDT</span>
                 </div>
 
                 <div className="mt-2.5 pt-2 border-t border-slate-200 dark:border-slate-800/80 flex items-start space-x-1.5 text-xs font-mono text-slate-400">
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
                   <span>
-                    Fixed Amount Rule: Investment amount is fixed and non-editable. It is tied strictly to Level {selectedTier.level} with a {selectedTier.displayRate} reward.
+                    Level {selectedTier.level} runs for {selectedTier.durationSeconds} seconds. The minimum investment is {selectedTier.amount.toLocaleString()} USDT and the reward rate is {selectedTier.displayRate}.
                   </span>
                 </div>
               </div>
@@ -1216,8 +1217,8 @@ export const FutureTradingTerminal: React.FC = () => {
                 <span className="font-bold text-slate-900 dark:text-white">{selectedTier.label}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span>Specific Investment:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{selectedTier.amount.toLocaleString()} USDT</span>
+                <span>Investment:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{effectiveInvestment.toLocaleString()} USDT</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Contract Reward Rate:</span>
@@ -1315,7 +1316,7 @@ export const FutureTradingTerminal: React.FC = () => {
               <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden font-mono text-xs">
                 <div className="grid grid-cols-3 py-2 px-3 bg-slate-100 dark:bg-slate-900 text-xs font-bold text-slate-400 uppercase">
                   <span>Level</span>
-                  <span className="text-right">Specific Amount</span>
+                  <span className="text-right">Minimum Amount</span>
                   <span className="text-right">Reward Rate</span>
                 </div>
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-48 overflow-y-auto">

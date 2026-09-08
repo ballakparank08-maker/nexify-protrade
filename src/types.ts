@@ -277,10 +277,9 @@ export interface FutureContractPosition {
   strikePrice: number;
   currentPrice: number;
   settlementPrice?: number;
-  investment: number; // in USDT (Specific fixed amount for the tier)
+  investment: number; // in USDT
   level?: number; // 30, 60, 90, 120, 180, 240, 360
-  billingDays?: number; // 30, 60, 90, 120, 180, 240, 360
-  billingSeconds?: number;
+  durationSeconds?: number;
   profitRate: number; // e.g. 0.10 (10%)
   potentialProfit: number; // investment * profitRate
   potentialPayout: number; // investment + potentialProfit
@@ -299,8 +298,8 @@ export interface FutureContractPosition {
 
 export interface BillingTimeOption {
   level: number; // 30, 60, 90, 120, 180, 240, 360
-  days: number; // 30, 60, 90, 120, 180, 240, 360
-  amount: number; // Specific amount: 100, 10000, 50000, 100000, 250000, 400000, 500000
+  durationSeconds: number;
+  amount: number; // Minimum amount: 100, 10000, 50000, 100000, 250000, 400000, 500000
   profitRate: number; // 0.10, 0.15, 0.20, 0.30, 0.40, 0.50, 0.70
   displayRate: string; // "10%", "15%", "20%", "30%", "40%", "50%", "70%"
   label: string;

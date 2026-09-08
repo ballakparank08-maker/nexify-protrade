@@ -208,6 +208,7 @@ interface TradingContextType {
     symbol: string; 
     direction: 'bullish' | 'bearish'; 
     level: number;
+    investment: number;
   }) => Promise<{ success: boolean; message: string; position?: FutureContractPosition }>;
   settleFuturePositionEarly: (positionId: string) => { success: boolean; message: string };
   cancelFuturePosition: (positionId: string) => { success: boolean; message: string };
@@ -330,8 +331,7 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
     currentPrice: 79780.42,
     investment: 100,
     level: 30,
-    billingDays: 30,
-    billingSeconds: 30 * 86400,
+    durationSeconds: 30,
     profitRate: 0.10,
     potentialProfit: 10,
     potentialPayout: 110,
@@ -356,8 +356,7 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
     currentPrice: 79780.42,
     investment: 10000,
     level: 60,
-    billingDays: 60,
-    billingSeconds: 60 * 86400,
+    durationSeconds: 60,
     profitRate: 0.15,
     potentialProfit: 1500,
     potentialPayout: 11500,
@@ -382,8 +381,7 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
     currentPrice: 2487.23,
     investment: 100,
     level: 30,
-    billingDays: 30,
-    billingSeconds: 30 * 86400,
+    durationSeconds: 30,
     profitRate: 0.10,
     potentialProfit: 10,
     potentialPayout: 100,
@@ -409,8 +407,7 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
     currentPrice: 79780.42,
     investment: 100,
     level: 30,
-    billingDays: 30,
-    billingSeconds: 30 * 86400,
+    durationSeconds: 30,
     profitRate: 0.10,
     potentialProfit: 10,
     potentialPayout: 110,
@@ -435,8 +432,7 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
     currentPrice: 103.72,
     investment: 10000,
     level: 60,
-    billingDays: 60,
-    billingSeconds: 60 * 86400,
+    durationSeconds: 60,
     profitRate: 0.15,
     potentialProfit: 1500,
     potentialPayout: 10000,
@@ -1053,16 +1049,19 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     symbol: string;
     direction: 'bullish' | 'bearish';
     level: number;
+    investment: number;
   }) => {
-    const { symbol, direction, level } = params;
+    const { symbol, direction, level, investment } = params;
     const rule = FUTURE_CONTRACT_RULES[level as keyof typeof FUTURE_CONTRACT_RULES];
     if (!rule) {
       return { success: false, message: 'Select one of the 7 available contract levels.' };
     }
-    const { amount: investment, profitRate } = rule;
-    const billingDays = level;
-    const durationSeconds = billingDays * 86400;
+    const { amount: minimumInvestment, profitRate } = rule;
+    const durationSeconds = level;
 
+    if (!Number.isFinite(investment) || investment < minimumInvestment) {
+      return { success: false, message: `Level ${level} requires a minimum investment of ${minimumInvestment.toLocaleString()} USDT.` };
+    }
     if (wallet.usdtBalance < investment) {
       return { 
         success: false, 
@@ -1098,8 +1097,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       currentPrice: strikePrice,
       investment,
       level,
-      billingDays,
-      billingSeconds: durationSeconds,
+      durationSeconds,
       profitRate,
       potentialProfit,
       potentialPayout,
@@ -1129,7 +1127,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     return {
       success: true,
-      message: `Contract order ${orderNum} opened for Level ${level} on ${symbol} (${direction.toUpperCase()}) with ${investment.toLocaleString()} USDT.`,
+      message: `Contract order ${orderNum} opened for Level ${level} (${durationSeconds} seconds) on ${symbol} (${direction.toUpperCase()}) with ${investment.toLocaleString()} USDT.`,
       position: newPosition
     };
   }, [wallet.usdtBalance, cryptoAssets, selectedAsset]);
