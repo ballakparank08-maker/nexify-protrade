@@ -16,7 +16,6 @@ import {
   Timer,
   FileText,
   RotateCcw,
-  Check,
   PlusCircle,
   Sun,
   Moon,
@@ -553,7 +552,7 @@ export const FutureTradingTerminal: React.FC = () => {
           {/* ========================================================================= */}
           {/* LEFT 8 OR 9 COLS: TIMEFRAME BAR, CANDLESTICK CHART & CURRENT POSITIONS */}
           {/* ========================================================================= */}
-          <div className={`lg:col-span-8 xl:col-span-9 border-r ${themeMode === 'light' ? 'border-slate-200' : 'border-slate-800/80'} flex flex-col`}>
+          <div className={`lg:col-span-8 xl:col-span-8 min-w-0 border-r ${themeMode === 'light' ? 'border-slate-200' : 'border-slate-800/80'} flex flex-col`}>
             
             {/* Timeframe Selector Bar */}
             <div className={`flex items-center space-x-2 px-4 py-2 border-b ${themeMode === 'light' ? 'border-slate-200 bg-[#FAFAFA]' : 'border-slate-800/80 bg-[#090e1d]'}`}>
@@ -931,7 +930,7 @@ export const FutureTradingTerminal: React.FC = () => {
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left font-mono text-xs">
+                    <table className="min-w-[1150px] w-full text-left font-mono text-xs">
                       <thead>
                         <tr className={`border-b text-xs text-slate-400 uppercase ${themeMode === 'light' ? 'border-slate-100 bg-slate-50/50' : 'border-slate-800 bg-[#060a14]'}`}>
                           <th className="py-2 px-2 font-medium">Order Number</th>
@@ -1049,7 +1048,7 @@ export const FutureTradingTerminal: React.FC = () => {
         {/* ========================================================================= */}
         {/* RIGHT 4 OR 3 COLS: CONTRACT ORDER SIDEBAR */}
         {/* ========================================================================= */}
-        <div className={`lg:col-span-4 xl:col-span-3 p-5 flex flex-col justify-between ${themeMode === 'light' ? 'bg-[#FAFAFA]' : 'bg-[#0c1122]/90 border-l border-slate-800/80'}`}>
+        <div className={`lg:col-span-4 xl:col-span-4 min-w-0 p-5 flex flex-col justify-between ${themeMode === 'light' ? 'bg-[#FAFAFA]' : 'bg-[#0c1122]/90 border-l border-slate-800/80'}`}>
           
           <div className="space-y-5">
             {/* Header: "Contract order" + "Bill & Rules" link */}
@@ -1084,9 +1083,9 @@ export const FutureTradingTerminal: React.FC = () => {
               </div>
 
               {/* Quick deposit buttons */}
-              <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-1.5">
-                <span className="text-[11px] font-mono text-slate-400 shrink-0 whitespace-nowrap">Quick Top-up:</span>
-                <div className="grid grid-cols-4 gap-1 flex-1 min-w-0">
+              <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 space-y-1.5">
+                <span className="block text-[11px] font-mono text-slate-400 whitespace-nowrap">Quick Top-up</span>
+                <div className="grid grid-cols-4 gap-1">
                   <button
                     type="button"
                     onClick={() => addDemoUsdt(1000)}
@@ -1136,10 +1135,10 @@ export const FutureTradingTerminal: React.FC = () => {
 
               {/* Strict 7 selection table matching user rules image */}
               <div className={`rounded-xl border overflow-hidden ${themeMode === 'light' ? 'border-slate-200 bg-white' : 'border-slate-800 bg-[#060a14]'}`}>
-                <div className={`grid grid-cols-12 py-1.5 px-3 text-xs font-mono uppercase tracking-wider font-semibold border-b ${themeMode === 'light' ? 'bg-slate-100/70 border-slate-200 text-slate-500' : 'bg-slate-900/80 border-slate-800 text-slate-400'}`}>
-                  <div className="col-span-4">Level</div>
-                  <div className="col-span-5 text-center">Amount</div>
-                  <div className="col-span-3 text-right">Reward</div>
+                <div className={`grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-2 py-1.5 px-2 text-[11px] font-mono uppercase tracking-wider font-semibold border-b ${themeMode === 'light' ? 'bg-slate-100/70 border-slate-200 text-slate-500' : 'bg-slate-900/80 border-slate-800 text-slate-400'}`}>
+                  <div>Level</div>
+                  <div className="text-right">Amount</div>
+                  <div className="text-right">Reward</div>
                 </div>
 
                 <div className="divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[220px] overflow-y-auto">
@@ -1151,7 +1150,7 @@ export const FutureTradingTerminal: React.FC = () => {
                         id={`tier-select-level-${tier.level}`}
                         type="button"
                         onClick={() => setSelectedTier(tier)}
-                        className={`w-full grid grid-cols-12 items-center py-2.5 px-3 text-xs font-mono transition-all text-left ${
+                        className={`w-full grid grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)_auto] items-center gap-2 py-2.5 px-2 text-[11px] font-mono transition-all text-left ${
                           isSelected
                             ? 'bg-emerald-950/70 text-emerald-300 font-bold border-l-4 border-l-emerald-400 shadow-inner'
                             : themeMode === 'light'
@@ -1159,23 +1158,18 @@ export const FutureTradingTerminal: React.FC = () => {
                               : 'hover:bg-slate-800/50 text-slate-300'
                         }`}
                       >
-                        <div className="col-span-4 flex items-center space-x-1.5">
-                          {isSelected ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                          ) : (
-                            <span className="w-3.5 inline-block text-xs text-slate-500">•</span>
-                          )}
-                          <span className={`${isSelected ? 'text-emerald-300 font-bold' : ''}`}>
+                        <div className="min-w-0">
+                          <span className={`whitespace-nowrap ${isSelected ? 'text-emerald-300 font-bold' : ''}`}>
                             Level {tier.level}
                           </span>
                         </div>
-                        <div className="col-span-5 text-center font-semibold">
+                        <div className="whitespace-nowrap text-right font-semibold">
                           <span className={isSelected ? 'text-white' : ''}>
                             {tier.amount.toLocaleString()}
                           </span>
-                          <span className="text-xs text-slate-400 ml-1">USDT</span>
+                          <span className="text-[10px] text-slate-400 ml-1">USDT</span>
                         </div>
-                        <div className="col-span-3 text-right font-bold text-emerald-400">
+                        <div className="whitespace-nowrap text-right font-bold text-emerald-400">
                           {tier.displayRate}
                         </div>
                       </button>
@@ -1203,14 +1197,14 @@ export const FutureTradingTerminal: React.FC = () => {
                   ? 'bg-[#F4F4F5] border-slate-200' 
                   : 'bg-[#060a14] border-slate-800/90'
               }`}>
-                <div className="flex items-baseline justify-between">
+                <div className="flex flex-col items-start gap-2">
                   <div className="flex items-baseline space-x-2">
                     <span className="text-2xl font-bold font-mono tracking-tight text-emerald-400">
                       {selectedTier.amount.toLocaleString()}
                     </span>
                     <span className="text-xs font-mono font-medium text-slate-400">USDT</span>
                   </div>
-                  <div className="text-right">
+                  <div>
                     <span className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold">
                       {selectedTier.label} ({selectedTier.days} Days)
                     </span>

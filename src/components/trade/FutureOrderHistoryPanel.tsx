@@ -361,7 +361,7 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-white/10">
-          <table className="w-full text-left font-mono text-xs">
+          <table className="min-w-[1150px] w-full text-left font-mono text-xs">
             <thead>
               <tr className={`border-b text-xs text-slate-300 uppercase ${
                 isLight ? 'border-slate-200 bg-slate-100' : 'border-white/10 bg-[#060a14]'
