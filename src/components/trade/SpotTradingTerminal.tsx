@@ -533,9 +533,8 @@ export const SpotTradingTerminal: React.FC = () => {
 
         {/* CENTER-RIGHT: Order Book & Market Trades (2.5 cols) */}
         <div className="lg:col-span-2 min-w-0 flex flex-col rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-3 backdrop-blur-xl shadow-xl space-y-3">
-          <div className="flex items-center gap-1 border-b border-slate-800/80 pb-2 font-mono text-[10px] font-bold text-white">
-            <div className="flex min-w-0 items-center gap-1">
-              <span className="whitespace-nowrap">ORDER BOOK</span>
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-1 border-b border-slate-800/80 pb-2 font-mono text-[10px] font-bold text-white">
+            <span className="whitespace-nowrap">ORDER</span>
               <button
                 type="button"
                 id="orderbook-quick-depth-btn"
@@ -545,8 +544,7 @@ export const SpotTradingTerminal: React.FC = () => {
               >
                 (Depth)
               </button>
-            </div>
-            <span className="ml-auto whitespace-nowrap text-slate-400">Spread: 0.01%</span>
+            <span className="justify-self-end whitespace-nowrap text-slate-400">Spread: 0.01%</span>
           </div>
 
           {/* Quick Buy/Sell Pressure Ratio Bar */}
