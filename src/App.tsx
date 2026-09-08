@@ -8,6 +8,7 @@ import { FutureTradingTerminal } from './components/trade/FutureTradingTerminal'
 import { StakingTerminal } from './components/trade/StakingTerminal';
 import { MiningTerminal } from './components/trade/MiningTerminal';
 import { CryptoLoanTerminal } from './components/trade/CryptoLoanTerminal';
+import { ConvertTerminal } from './components/trade/ConvertTerminal';
 import { MarketOverview } from './components/market/MarketOverview';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AuthModal } from './components/auth/AuthModal';
@@ -105,6 +106,16 @@ const MainContent: React.FC = () => {
                 >
                   Markets
                 </button>
+                <button
+                  onClick={() => setCurrentTab('convert')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-medium font-mono shrink-0 transition-all ${
+                    currentTab === 'convert'
+                      ? 'bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/30 font-semibold shadow-sm'
+                      : 'bg-slate-900/80 border border-white/5 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  Convert
+                </button>
               </div>
 
               {/* Tab Views */}
@@ -114,6 +125,7 @@ const MainContent: React.FC = () => {
               {currentTab === 'mining' && <MiningTerminal />}
               {currentTab === 'loan' && <CryptoLoanTerminal />}
               {currentTab === 'market' && <MarketOverview />}
+              {currentTab === 'convert' && <ConvertTerminal />}
             </div>
           )
         )}

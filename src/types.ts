@@ -8,7 +8,8 @@ export type AppTab =
   | 'mining'
   | 'loan' 
   | 'rewards' 
-  | 'market';
+  | 'market'
+  | 'convert';
 
 export interface CryptoAsset {
   id: string;
@@ -87,7 +88,7 @@ export type OrderHistoryItem = CompletedSpotTrade;
 export interface Transaction {
   id: string;
   txHash: string;
-  type: 'deposit' | 'withdraw' | 'spot_buy' | 'spot_sell' | 'stake' | 'unstake' | 'borrow' | 'repay' | 'claim_reward';
+  type: 'deposit' | 'withdraw' | 'spot_buy' | 'spot_sell' | 'convert' | 'stake' | 'unstake' | 'borrow' | 'repay' | 'claim_reward';
   asset: string;
   amount: number;
   usdValue: number;
@@ -305,4 +306,3 @@ export interface BillingTimeOption {
   label: string;
   seconds?: number;
 }
-

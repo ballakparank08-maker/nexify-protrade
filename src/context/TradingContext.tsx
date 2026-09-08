@@ -107,6 +107,7 @@ interface TradingContextType {
 
   depositFunds: (asset: string, amount: number, network: string) => void;
   withdrawFunds: (asset: string, amount: number, address: string, network: string) => { success: boolean; message: string };
+  convertAsset: (fromAsset: string, toAsset: string, amount: number) => { success: boolean; message: string };
 
   stakeAsset: (poolId: string, amount: number) => { success: boolean; message: string };
   unstakeAsset: (poolId: string, amount: number) => { success: boolean; message: string };
@@ -2150,6 +2151,52 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, message: `Withdrawal of ${amount} ${asset} dispatched on ${network}.` };
   };
 
+  const convertAsset = (fromAsset: string, toAsset: string, amount: number) => {
+    if (circuitBreakerActive) {
+      return { success: false, message: 'Conversions are temporarily halted by the Admin Circuit Breaker.' };
+    }
+    if (fromAsset === toAsset || !Number.isFinite(amount) || amount <= 0) {
+      return { success: false, message: 'Select different assets and enter a valid amount.' };
+    }
+
+    const fromPrice = fromAsset === 'USDT' ? 1 : cryptoAssets.find(asset => asset.symbol === fromAsset)?.price;
+    const toPrice = toAsset === 'USDT' ? 1 : cryptoAssets.find(asset => asset.symbol === toAsset)?.price;
+    if (!fromPrice || !toPrice) {
+      return { success: false, message: 'A live quote is not available for the selected asset.' };
+    }
+
+    const available = fromAsset === 'USDT' ? wallet.usdtBalance : (wallet.assets[fromAsset] || 0);
+    if (amount > available) {
+      return { success: false, message: `Insufficient ${fromAsset} balance. Available: ${available.toFixed(6)} ${fromAsset}.` };
+    }
+
+    const usdValue = amount * fromPrice;
+    const receivedAmount = (usdValue * 0.999) / toPrice;
+    setWallet(prev => ({
+      ...prev,
+      usdtBalance: prev.usdtBalance + (toAsset === 'USDT' ? receivedAmount : 0) - (fromAsset === 'USDT' ? amount : 0),
+      assets: {
+        ...prev.assets,
+        ...(fromAsset === 'USDT' ? {} : { [fromAsset]: (prev.assets[fromAsset] || 0) - amount }),
+        ...(toAsset === 'USDT' ? {} : { [toAsset]: (prev.assets[toAsset] || 0) + receivedAmount })
+      }
+    }));
+
+    setTransactions(prev => [{
+      id: `tx-${Date.now()}`,
+      txHash: `0x${Math.random().toString(16).substring(2, 10)}...${Math.random().toString(16).substring(2, 6)}`,
+      type: 'convert',
+      asset: `${fromAsset}/${toAsset}`,
+      amount,
+      usdValue,
+      status: 'completed',
+      network: 'Prism Convert Engine',
+      timestamp: 'Just now'
+    }, ...prev]);
+
+    return { success: true, message: `Converted ${amount.toFixed(6)} ${fromAsset} to ${receivedAmount.toFixed(6)} ${toAsset}.` };
+  };
+
   // Staking
   const stakeAsset = (poolId: string, amount: number) => {
     const pool = stakingPools.find(p => p.id === poolId);
@@ -2534,6 +2581,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         cancelOrder,
         depositFunds,
         withdrawFunds,
+        convertAsset,
         stakeAsset,
         unstakeAsset,
         borrowLoan,
