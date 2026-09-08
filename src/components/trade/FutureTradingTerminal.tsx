@@ -64,8 +64,7 @@ export const FutureTradingTerminal: React.FC = () => {
     futureHistory, 
     placeFutureContract, 
     cancelFuturePosition,
-    clearFutureHistory,
-    addDemoUsdt
+    clearFutureHistory
   } = useTrading();
 
   // Selected trading pair
@@ -1056,7 +1055,7 @@ export const FutureTradingTerminal: React.FC = () => {
               </button>
             </div>
 
-            {/* Account USDT & Quick Demo Balance Top-up */}
+            {/* Account USDT balance */}
             <div className={`p-4 rounded-xl border ${themeMode === 'light' ? 'bg-[#F4F4F5] border-slate-200' : 'bg-[#060a14] border-slate-800'} space-y-3 shadow-inner`}>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400 font-mono text-xs font-semibold uppercase tracking-wider">Account Balance</span>
@@ -1070,45 +1069,6 @@ export const FutureTradingTerminal: React.FC = () => {
                   {wallet.usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-xs font-mono font-medium text-slate-400">USDT</span>
-              </div>
-
-              {/* Quick deposit buttons */}
-              <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-800/80 space-y-1.5">
-                <span className="block text-[11px] font-mono text-slate-400 whitespace-nowrap">Quick Top-up</span>
-                <div className="grid grid-cols-4 gap-1">
-                  <button
-                    type="button"
-                    onClick={() => addDemoUsdt(1000)}
-                    className="py-1 px-0.5 text-center rounded bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-700/60 text-emerald-300 font-mono text-[10px] sm:text-[11px] font-bold transition-all shadow-sm truncate"
-                    title="Add 1,000 USDT"
-                  >
-                    +1k
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => addDemoUsdt(10000)}
-                    className="py-1 px-0.5 text-center rounded bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-700/60 text-emerald-300 font-mono text-[10px] sm:text-[11px] font-bold transition-all shadow-sm truncate"
-                    title="Add 10,000 USDT (Level 60)"
-                  >
-                    +10k
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => addDemoUsdt(100000)}
-                    className="py-1 px-0.5 text-center rounded bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-700/60 text-emerald-300 font-mono text-[10px] sm:text-[11px] font-bold transition-all shadow-sm truncate"
-                    title="Add 100,000 USDT (Level 120)"
-                  >
-                    +100k
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => addDemoUsdt(500000)}
-                    className="py-1 px-0.5 text-center rounded bg-emerald-950/80 hover:bg-emerald-800 border border-emerald-700/60 text-emerald-300 font-mono text-[10px] sm:text-[11px] font-bold transition-all shadow-sm truncate"
-                    title="Add 500,000 USDT (Level 360)"
-                  >
-                    +500k
-                  </button>
-                </div>
               </div>
             </div>
 
