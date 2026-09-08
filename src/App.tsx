@@ -106,16 +106,6 @@ const MainContent: React.FC = () => {
                 >
                   Markets
                 </button>
-                <button
-                  onClick={() => setCurrentTab('convert')}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-medium font-mono shrink-0 transition-all ${
-                    currentTab === 'convert'
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/30 font-semibold shadow-sm'
-                      : 'bg-slate-900/80 border border-white/5 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  Convert
-                </button>
               </div>
 
               {/* Tab Views */}

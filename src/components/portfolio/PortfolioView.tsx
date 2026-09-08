@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   ArrowDownToLine, 
   ArrowUpFromLine, 
+  ArrowLeftRight,
   TrendingUp, 
   TrendingDown, 
   Eye, 
@@ -154,7 +155,7 @@ export const PortfolioView: React.FC = () => {
             </div>
           </div>
 
-          {/* Deposit / Withdraw Action Buttons */}
+          {/* Portfolio Action Buttons */}
           <div className="flex flex-row lg:flex-col sm:flex-row gap-3">
             <button
               id="portfolio-deposit-action-btn"
@@ -166,6 +167,15 @@ export const PortfolioView: React.FC = () => {
             >
               <ArrowDownToLine className="h-4 w-4" />
               <span>Deposit Funds</span>
+            </button>
+
+            <button
+              id="portfolio-convert-action-btn"
+              onClick={() => setCurrentTab('convert')}
+              className="flex-1 flex items-center justify-center space-x-2 rounded-xl border border-cyan-500/40 bg-cyan-950/40 px-6 py-3 text-sm font-medium text-cyan-200 transition-all hover:border-cyan-400 hover:bg-cyan-900/50"
+            >
+              <ArrowLeftRight className="h-4 w-4 text-cyan-300" />
+              <span>Convert Assets</span>
             </button>
 
             <button

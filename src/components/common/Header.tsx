@@ -23,7 +23,6 @@ import {
   Lock,
   Clock,
   Activity
-  , ArrowLeftRight
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
 import { AppDomain, AppTab } from '../../types';
@@ -352,21 +351,6 @@ export const Header: React.FC = () => {
             >
               <Activity className="h-3.5 w-3.5 opacity-80" />
               <span>Markets</span>
-            </button>
-            <button
-              id="nav-convert-link"
-              onClick={() => {
-                setCurrentDomain('app');
-                setCurrentTab('convert');
-              }}
-              className={`px-3.5 py-1.5 rounded-full text-xs font-medium tracking-wide transition-all duration-200 flex items-center space-x-1.5 ${
-                currentTab === 'convert' && currentDomain === 'app'
-                  ? 'bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/30 font-semibold shadow-sm shadow-cyan-500/10'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 border border-transparent'
-              }`}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5 opacity-80" />
-              <span>Convert</span>
             </button>
           </div>
         </div>
