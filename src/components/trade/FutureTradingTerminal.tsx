@@ -918,7 +918,39 @@ export const FutureTradingTerminal: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <>
+                    <div className="space-y-3 2xl:hidden">
+                      {futurePositions.map(pos => {
+                        const isWinNow = pos.direction === 'bullish'
+                          ? livePrice >= pos.strikePrice
+                          : livePrice <= pos.strikePrice;
+
+                        return (
+                          <div key={pos.id} className="rounded-xl border border-slate-800 bg-[#060a14] p-3 text-xs">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-mono font-semibold text-slate-300">{pos.orderNumber}</span>
+                              <span className="rounded bg-purple-950/60 px-2 py-0.5 font-mono font-bold text-purple-300">Level {pos.level || 30}</span>
+                              <span className={`rounded px-2 py-0.5 font-bold ${isWinNow ? 'bg-emerald-950/80 text-emerald-300' : 'bg-rose-950/80 text-rose-300'}`}>
+                                {isWinNow ? 'IN MONEY' : 'OUT OF MONEY'}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-slate-400">
+                              <div><span className="block text-[10px] uppercase">Pair</span><span className="font-semibold text-white">{pos.symbol}</span></div>
+                              <div><span className="block text-[10px] uppercase">Direction</span><span className={pos.direction === 'bullish' ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>{pos.direction === 'bullish' ? 'Buy (Call)' : 'Sell (Put)'}</span></div>
+                              <div><span className="block text-[10px] uppercase">Strike / Current</span><span className="font-semibold text-slate-200">${pos.strikePrice.toFixed(2)} / <span className={isWinNow ? 'text-emerald-400' : 'text-rose-400'}>${livePrice.toFixed(2)}</span></span></div>
+                              <div><span className="block text-[10px] uppercase">Investment</span><span className="font-semibold text-white">{pos.investment.toLocaleString()} USDT</span></div>
+                              <div><span className="block text-[10px] uppercase">Est. Payout</span><span className="font-semibold text-emerald-400">+{pos.potentialProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDT</span></div>
+                              <div><span className="block text-[10px] uppercase">Remaining</span><span className="font-semibold text-amber-300">{formatRemainingTime(pos.secondsRemaining)}</span></div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-800 pt-3">
+                              <button id={`cancel-position-${pos.id}`} onClick={() => handleCancelPosition(pos.id)} className="rounded-lg border border-rose-800/40 bg-rose-950/40 px-3 py-2 font-semibold text-rose-300 transition-colors hover:bg-rose-900/60">Cancel</button>
+                              <button id={`settle-early-${pos.id}`} onClick={() => handleSettleEarly(pos.id)} className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-semibold text-slate-200 transition-colors hover:bg-emerald-600 hover:text-white">Settle Now</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="hidden overflow-x-auto 2xl:block">
                     <table className="min-w-[1150px] w-full text-left font-mono text-xs">
                       <thead>
                         <tr className={`border-b text-xs text-slate-400 uppercase ${themeMode === 'light' ? 'border-slate-100 bg-slate-50/50' : 'border-slate-800 bg-[#060a14]'}`}>
@@ -1019,6 +1051,7 @@ export const FutureTradingTerminal: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
             )}

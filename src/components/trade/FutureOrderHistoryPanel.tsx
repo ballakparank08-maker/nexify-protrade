@@ -358,7 +358,37 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-white/10">
+        <>
+          <div className="space-y-3 2xl:hidden">
+            {filteredTrades.map(item => {
+              const cancelled = isCancelled(item);
+              const isWon = item.status === 'won' || (item.pnl !== undefined && item.pnl > 0);
+              const pnlValue = item.pnl ?? (isWon ? item.potentialProfit : -item.investment);
+
+              return (
+                <div key={item.id} className="rounded-xl border border-white/10 bg-[#060a14] p-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono font-semibold text-slate-200">{item.orderNumber}</span>
+                    <span className="rounded bg-purple-950/60 px-2 py-0.5 font-mono font-bold text-purple-300">Level {item.level || 30}</span>
+                    <span className={`rounded px-2 py-0.5 font-bold ${cancelled ? 'bg-amber-950/60 text-amber-300' : isWon ? 'bg-emerald-950/80 text-emerald-300' : 'bg-rose-950/80 text-rose-300'}`}>
+                      {cancelled ? 'CANCELLED' : isWon ? 'WON' : 'LOST'}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-slate-400">
+                    <div><span className="block text-[10px] uppercase">Pair / Direction</span><span className={item.direction === 'bullish' ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>{item.symbol} · {item.direction === 'bullish' ? 'Buy (Call)' : 'Sell (Put)'}</span></div>
+                    <div><span className="block text-[10px] uppercase">Investment</span><span className="font-semibold text-white">{item.investment.toLocaleString()} USDT</span></div>
+                    <div><span className="block text-[10px] uppercase">Strike / Settled</span><span className="font-semibold text-slate-200">${item.strikePrice.toFixed(2)} / {cancelled ? 'Cancelled' : `$${(item.settlementPrice ?? item.currentPrice).toFixed(2)}`}</span></div>
+                    <div><span className="block text-[10px] uppercase">Realized PnL</span><span className={cancelled || isWon ? 'font-semibold text-emerald-400' : 'font-semibold text-rose-400'}>{cancelled ? '$0.00 Refunded' : `${isWon ? '+' : '-'}${Math.abs(pnlValue).toLocaleString(undefined, { minimumFractionDigits: 2 })} USDT`}</span></div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/10 pt-3">
+                    <span className="min-w-0 truncate text-[10px] text-slate-500">{item.settledAt || item.createdAt}</span>
+                    <button id={`view-trade-details-${item.id}`} type="button" onClick={() => setSelectedTrade(item)} className="shrink-0 rounded-lg border border-cyan-500/30 bg-cyan-950/40 px-3 py-1.5 font-medium text-cyan-300 transition-colors hover:bg-cyan-900/50">Details</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-xl border border-white/10 2xl:block">
           <table className="min-w-[1150px] w-full text-left font-mono text-xs">
             <thead>
               <tr className={`border-b text-xs text-slate-300 uppercase ${
@@ -500,6 +530,7 @@ export const FutureOrderHistoryPanel: React.FC<FutureOrderHistoryPanelProps> = (
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {/* ========================================================================= */}
