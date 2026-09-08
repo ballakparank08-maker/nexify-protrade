@@ -43,9 +43,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
     addSecurityAuditLog
   } = useTrading();
 
-  const [authMethod, setAuthMethod] = useState<'quick' | 'credentials' | 'wallet'>('quick');
-  const [emailInput, setEmailInput] = useState(targetDomain === 'admin' ? 'admin@nexifyprotrade.io' : 'marcus.vance@nexifyprotrade.io');
-  const [passwordInput, setPasswordInput] = useState('••••••••••••');
+  const [authMethod, setAuthMethod] = useState<'quick' | 'credentials' | 'wallet'>('credentials');
+  const [emailInput, setEmailInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -105,6 +105,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
         setTempUser(res.tempUser);
         setIs2FAStep(true);
         setTotpDigits(['', '', '', '', '', '']);
+      } else if (!res.success) {
+        setErrorMessage(res.error || 'Demo access is unavailable.');
       }
     } catch {
       setErrorMessage('Failed to initiate login session.');
@@ -116,15 +118,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailInput.trim()) return;
-
-    if (targetDomain === 'admin') {
-      const cleanEmail = emailInput.trim().toLowerCase();
-      if (!cleanEmail.includes('admin')) {
-        setErrorMessage(`Access Denied: Account '${cleanEmail}' is not an authorized administrator. Only root admin credentials with 2FA security clearance are permitted.`);
-        addSecurityAuditLog(`Unauthorized credential login attempt for ${cleanEmail} on Admin portal`, 'failed');
-        return;
-      }
-    }
 
     setErrorMessage(null);
     setIsLoading(true);
@@ -159,6 +152,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
         setTempUser(res.tempUser);
         setIs2FAStep(true);
         setTotpDigits(['', '', '', '', '', '']);
+      } else if (!res.success) {
+        setErrorMessage(res.error || 'Wallet sign-in is unavailable.');
       }
     } catch {
       setErrorMessage('Wallet signature declined or timed out.');

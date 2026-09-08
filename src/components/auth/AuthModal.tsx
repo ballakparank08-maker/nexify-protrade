@@ -14,20 +14,31 @@ import { useTrading } from '../../context/TradingContext';
 import { NexifyLogo } from '../common/NexifyLogo';
 
 export const AuthModal: React.FC = () => {
-  const { isAuthModalOpen, setIsAuthModalOpen, connectWallet } = useTrading();
-  const [authTab, setAuthTab] = useState<'web3' | 'institutional'>('web3');
+  const { isAuthModalOpen, setIsAuthModalOpen, loginWithCredentials, loginWithWallet } = useTrading();
+  const [authTab, setAuthTab] = useState<'web3' | 'institutional'>('institutional');
   const [emailInput, setEmailInput] = useState('');
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isAuthModalOpen) return null;
 
-  const handleConnect = (walletName: string) => {
-    connectWallet(walletName);
+  const handleConnect = async (walletName: string) => {
+    const result = await loginWithWallet(walletName);
+    if (!result.success) setErrorMessage(result.error || 'Wallet sign-in is unavailable.');
   };
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    connectWallet('Institutional Key');
+    setErrorMessage(null);
+    setIsSubmitting(true);
+    const result = await loginWithCredentials(emailInput, apiKeyInput);
+    setIsSubmitting(false);
+    if (result.success) {
+      setIsAuthModalOpen(false);
+    } else {
+      setErrorMessage(result.error || 'Unable to sign in.');
+    }
   };
 
   return (
@@ -51,8 +62,14 @@ export const AuthModal: React.FC = () => {
           <h3 className="text-lg font-bold text-white font-mono">AUTHENTICATE WORKSTATION</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Connect your non-custodial Web3 wallet or institutional API credentials.
+          Sign in with your securely managed Nexify account.
         </p>
+
+        {errorMessage && (
+          <div className="mb-4 rounded-xl border border-rose-800/60 bg-rose-950/30 p-3 text-xs text-rose-300">
+            {errorMessage}
+          </div>
+        )}
 
         {/* Tab switch: Web3 Wallet vs Email / Key */}
         <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900 p-1 border border-slate-800 mb-5 font-mono text-xs">
@@ -127,7 +144,7 @@ export const AuthModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-slate-300 text-xs font-medium uppercase block mb-1">Prism API Session Key</label>
+              <label className="text-slate-300 text-xs font-medium uppercase block mb-1">Account Password</label>
               <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
                 <KeyRound className="h-4 w-4 text-slate-500 mr-2" />
                 <input
@@ -135,7 +152,7 @@ export const AuthModal: React.FC = () => {
                   required
                   value={apiKeyInput}
                   onChange={e => setApiKeyInput(e.target.value)}
-                  placeholder="prsm_live_9832..."
+                  placeholder="Enter your password"
                   className="w-full bg-transparent outline-none text-xs"
                 />
               </div>
@@ -143,9 +160,10 @@ export const AuthModal: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 font-bold text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:brightness-110 transition-all text-xs"
+              disabled={isSubmitting}
+              className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 font-bold text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:brightness-110 transition-all text-xs disabled:opacity-50"
             >
-              INITIALIZE SESSION
+              {isSubmitting ? 'SIGNING IN...' : 'SIGN IN SECURELY'}
             </button>
           </form>
         )}
