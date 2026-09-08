@@ -1,0 +1,41 @@
+<svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hexBorderGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d946ef" />
+      <stop offset="35%" stop-color="#9333ea" />
+      <stop offset="65%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#00f0ff" />
+    </linearGradient>
+    <radialGradient id="hexInnerBg" cx="45%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="60%" stop-color="#080d1a" />
+      <stop offset="100%" stop-color="#04060d" />
+    </radialGradient>
+    <linearGradient id="cyanArrowGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="40%" stop-color="#06b6d4" />
+      <stop offset="85%" stop-color="#00f5ff" />
+      <stop offset="100%" stop-color="#a5f3fc" />
+    </linearGradient>
+    <linearGradient id="magentaRibbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="45%" stop-color="#ec4899" />
+      <stop offset="85%" stop-color="#a855f7" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+  </defs>
+
+  <path d="M60 6 L106 32.5 L106 87.5 L60 114 L14 87.5 L14 32.5 Z" fill="#050814" stroke="url(#hexBorderGrad)" stroke-width="6" stroke-linejoin="round" />
+  <path d="M60 12 L100 35 L100 85 L60 108 L20 85 L20 35 Z" fill="url(#hexInnerBg)" stroke="#1e293b" stroke-width="1.5" stroke-linejoin="round" />
+
+  <line x1="48" y1="28" x2="48" y2="48" stroke="#00f5ff" stroke-width="1.5" opacity="0.7" />
+  <rect x="46" y="34" width="4" height="10" rx="1" fill="#00f5ff" />
+  <line x1="58" y1="23" x2="58" y2="46" stroke="#06b6d4" stroke-width="1.5" opacity="0.8" />
+  <rect x="56" y="27" width="4" height="13" rx="1" fill="#06b6d4" />
+  <line x1="68" y1="20" x2="68" y2="44" stroke="#f43f5e" stroke-width="1.5" opacity="0.9" />
+  <rect x="66" y="24" width="4" height="12" rx="1" fill="#f43f5e" />
+
+  <path d="M28 78 C26 62 30 48 40 44 C48 40 50 48 45 60 C40 70 34 76 28 78 Z" fill="url(#magentaRibbonGrad)" />
+  <path d="M24 76 C32 78 44 72 56 60 C68 48 76 38 86 32 L88 38 L94 22 L76 25 L81 30 C72 36 64 45 52 56 C42 66 32 72 24 76 Z" fill="url(#cyanArrowGrad)" />
+  <polygon points="94,22 76,25 82,31 87,31" fill="#e0f2fe" />
+</svg>

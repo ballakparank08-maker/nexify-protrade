@@ -1,0 +1,6 @@
+{
+  "name": "Nexify ProTrade",
+  "description": "Nexify ProTrade - Enterprise-grade Web3 digital asset trading workstation, sub-second spot exchange, institutional order books, algorithmic crypto loans, future contract trading, and mining station.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
