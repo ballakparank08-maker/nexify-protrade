@@ -917,7 +917,7 @@ export const FutureTradingTerminal: React.FC = () => {
                               <span className="font-mono font-semibold text-slate-300">{pos.orderNumber}</span>
                               <span className="rounded bg-purple-950/60 px-2 py-0.5 font-mono font-bold text-purple-300">Level {pos.level || 30}</span>
                               <span className={`rounded px-2 py-0.5 font-bold ${pendingReview ? 'bg-amber-950/80 text-amber-300' : 'bg-cyan-950/80 text-cyan-300'}`}>
-                                {pendingReview ? 'AWAITING ADMIN REVIEW' : 'ACTIVE'}
+                                {pendingReview ? 'The market settles within a few seconds' : 'ACTIVE'}
                               </span>
                             </div>
                             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-slate-400">
@@ -926,7 +926,7 @@ export const FutureTradingTerminal: React.FC = () => {
                               <div><span className="block text-[10px] uppercase">Reference Price</span><span className="font-semibold text-slate-200">${pos.strikePrice.toFixed(2)}</span></div>
                               <div><span className="block text-[10px] uppercase">Investment</span><span className="font-semibold text-white">{pos.investment.toLocaleString()} USDT</span></div>
                               <div><span className="block text-[10px] uppercase">Est. Payout</span><span className="font-semibold text-emerald-400">+{pos.potentialProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDT</span></div>
-                              <div><span className="block text-[10px] uppercase">Status</span><span className={pendingReview ? 'font-semibold text-amber-300' : 'font-semibold text-cyan-300'}>{pendingReview ? 'Awaiting Admin Review' : formatRemainingTime(pos.secondsRemaining)}</span></div>
+                              <div><span className="block text-[10px] uppercase">Status</span><span className={pendingReview ? 'font-semibold text-amber-300' : 'font-semibold text-cyan-300'}>{pendingReview ? 'The market settles within a few seconds' : formatRemainingTime(pos.secondsRemaining)}</span></div>
                             </div>
                             {pos.status === 'active' && <div className="mt-3 border-t border-slate-800 pt-3">
                               <button id={`cancel-position-${pos.id}`} onClick={() => handleCancelPosition(pos.id)} className="rounded-lg border border-rose-800/40 bg-rose-950/40 px-3 py-2 font-semibold text-rose-300 transition-colors hover:bg-rose-900/60">Cancel</button>
@@ -999,7 +999,7 @@ export const FutureTradingTerminal: React.FC = () => {
                               </td>
                               <td className="py-3">
                                 <span className={`px-2 py-1 rounded text-xs font-bold ${pendingReview ? 'bg-amber-950/80 text-amber-300' : 'bg-cyan-950/80 text-cyan-300'}`}>
-                                  {pendingReview ? 'AWAITING ADMIN REVIEW' : 'ACTIVE'}
+                                  {pendingReview ? 'The market settles within a few seconds' : 'ACTIVE'}
                                 </span>
                               </td>
                               <td className="py-3 text-right pr-2">
