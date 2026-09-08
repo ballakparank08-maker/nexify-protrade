@@ -310,7 +310,7 @@ export const SpotTradingTerminal: React.FC = () => {
       {/* 2. Main Terminal Grid: Chart (Left) + Order Book / Trades (Center) + Order Placement (Right) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* LEFT & CENTER: Interactive Candlestick / Depth Chart (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-4 backdrop-blur-xl shadow-xl">
+        <div className="lg:col-span-7 min-w-0 flex flex-col rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-4 backdrop-blur-xl shadow-xl">
           {/* Chart Header: View Switcher (Candles vs Market Depth) & Controls */}
           <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-800/80 gap-2">
             {/* View Mode Tabs */}
@@ -532,21 +532,21 @@ export const SpotTradingTerminal: React.FC = () => {
         </div>
 
         {/* CENTER-RIGHT: Order Book & Market Trades (2.5 cols) */}
-        <div className="lg:col-span-2 flex flex-col rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-3 backdrop-blur-xl shadow-xl space-y-3">
-          <div className="text-xs font-bold font-mono text-white flex items-center justify-between border-b border-slate-800/80 pb-2">
-            <div className="flex items-center space-x-1.5">
-              <span>ORDER BOOK</span>
+        <div className="lg:col-span-2 min-w-0 flex flex-col rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-3 backdrop-blur-xl shadow-xl space-y-3">
+          <div className="flex items-center gap-1 border-b border-slate-800/80 pb-2 font-mono text-[10px] font-bold text-white">
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="whitespace-nowrap">ORDER BOOK</span>
               <button
                 type="button"
                 id="orderbook-quick-depth-btn"
                 onClick={() => setChartViewMode('depth')}
-                className="text-xs text-purple-400 hover:text-purple-300 underline font-normal cursor-pointer"
+                className="whitespace-nowrap text-purple-400 hover:text-purple-300 underline font-normal cursor-pointer"
                 title="Open Market Depth Chart"
               >
                 (Depth)
               </button>
             </div>
-            <span className="text-xs text-slate-400">Spread: 0.01%</span>
+            <span className="ml-auto whitespace-nowrap text-slate-400">Spread: 0.01%</span>
           </div>
 
           {/* Quick Buy/Sell Pressure Ratio Bar */}
@@ -555,10 +555,9 @@ export const SpotTradingTerminal: React.FC = () => {
             className="cursor-pointer group rounded-lg bg-slate-900/80 p-2 border border-slate-800 hover:border-purple-500/50 transition-all font-mono text-xs"
             title="Click to view real-time Market Depth Chart"
           >
-            <div className="flex justify-between items-center text-slate-400 mb-1">
-              <span className="text-emerald-400 font-semibold">Buy {quickBuyRatio}%</span>
-              <span className="text-slate-400 text-xs group-hover:text-purple-300 transition-colors">Depth Chart ↗</span>
-              <span className="text-rose-400 font-semibold">Sell {100 - quickBuyRatio}%</span>
+            <div className="grid grid-cols-2 items-center gap-2 mb-1 text-slate-400">
+              <span className="whitespace-nowrap text-emerald-400 font-semibold">Buy {quickBuyRatio}%</span>
+              <span className="whitespace-nowrap text-right text-rose-400 font-semibold">Sell {100 - quickBuyRatio}%</span>
             </div>
             <div className="h-1.5 w-full rounded-full bg-slate-950 overflow-hidden flex">
               <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: `${quickBuyRatio}%` }} />
@@ -567,21 +566,21 @@ export const SpotTradingTerminal: React.FC = () => {
           </div>
 
           {/* Asks (Sell Orders - Red) */}
-          <div className="space-y-1 font-mono text-xs">
+          <div className="space-y-0.5 font-mono text-[11px]">
             {orderBook.asks.slice(-5).map((ask, idx) => {
               const depthPct = Math.min(100, (ask.total / 4) * 100);
               return (
                 <div 
                   key={idx} 
                   onClick={() => setInputPrice(ask.price.toString())}
-                  className="relative flex justify-between items-center px-1.5 py-0.5 rounded cursor-pointer hover:bg-rose-950/30"
+                  className="relative flex items-center justify-between gap-2 px-1.5 py-0.5 rounded cursor-pointer hover:bg-rose-950/30"
                 >
                   <div 
                     className="absolute right-0 top-0 bottom-0 bg-rose-500/10 rounded-r"
                     style={{ width: `${depthPct}%` }}
                   />
-                  <span className="relative z-10 text-rose-400 font-medium">${ask.price.toFixed(2)}</span>
-                  <span className="relative z-10 text-slate-400">{ask.amount.toFixed(3)}</span>
+                  <span className="relative z-10 whitespace-nowrap tabular-nums text-rose-400 font-medium">${ask.price.toFixed(2)}</span>
+                  <span className="relative z-10 whitespace-nowrap tabular-nums text-slate-400">{ask.amount.toFixed(3)}</span>
                 </div>
               );
             })}
@@ -596,21 +595,21 @@ export const SpotTradingTerminal: React.FC = () => {
           </div>
 
           {/* Bids (Buy Orders - Green) */}
-          <div className="space-y-1 font-mono text-xs">
+          <div className="space-y-0.5 font-mono text-[11px]">
             {orderBook.bids.slice(0, 5).map((bid, idx) => {
               const depthPct = Math.min(100, (bid.total / 4) * 100);
               return (
                 <div 
                   key={idx} 
                   onClick={() => setInputPrice(bid.price.toString())}
-                  className="relative flex justify-between items-center px-1.5 py-0.5 rounded cursor-pointer hover:bg-emerald-950/30"
+                  className="relative flex items-center justify-between gap-2 px-1.5 py-0.5 rounded cursor-pointer hover:bg-emerald-950/30"
                 >
                   <div 
                     className="absolute right-0 top-0 bottom-0 bg-emerald-500/10 rounded-r"
                     style={{ width: `${depthPct}%` }}
                   />
-                  <span className="relative z-10 text-emerald-400 font-medium">${bid.price.toFixed(2)}</span>
-                  <span className="relative z-10 text-slate-400">{bid.amount.toFixed(3)}</span>
+                  <span className="relative z-10 whitespace-nowrap tabular-nums text-emerald-400 font-medium">${bid.price.toFixed(2)}</span>
+                  <span className="relative z-10 whitespace-nowrap tabular-nums text-slate-400">{bid.amount.toFixed(3)}</span>
                 </div>
               );
             })}
@@ -619,14 +618,14 @@ export const SpotTradingTerminal: React.FC = () => {
           {/* Recent Market Trades Mini Feed */}
           <div className="pt-2 border-t border-slate-800/80">
             <div className="text-xs font-mono text-slate-400 font-semibold mb-1 uppercase">Recent Trades</div>
-            <div className="space-y-1 font-mono text-xs max-h-32 overflow-y-auto">
+            <div className="space-y-1 font-mono text-[10px] max-h-32 overflow-y-auto">
               {marketTrades.slice(0, 5).map(trade => (
-                <div key={trade.id} className="flex justify-between items-center text-slate-400">
-                  <span className={trade.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}>
+                <div key={trade.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-1 text-slate-400">
+                  <span className={`whitespace-nowrap tabular-nums ${trade.type === 'buy' ? 'text-emerald-400' : 'text-rose-400'}`}>
                     ${trade.price.toFixed(2)}
                   </span>
-                  <span>{trade.amount.toFixed(3)}</span>
-                  <span className="text-slate-500">{trade.time}</span>
+                  <span className="whitespace-nowrap tabular-nums">{trade.amount.toFixed(3)}</span>
+                  <span className="whitespace-nowrap tabular-nums text-slate-500">{trade.time}</span>
                 </div>
               ))}
             </div>
@@ -634,7 +633,7 @@ export const SpotTradingTerminal: React.FC = () => {
         </div>
 
         {/* RIGHT: Order Placement Form (2.5 cols) */}
-        <div className="lg:col-span-3 rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-4 backdrop-blur-xl shadow-xl flex flex-col justify-between">
+        <div className="lg:col-span-3 min-w-0 rounded-2xl border border-slate-800/80 bg-[#090e1d]/90 p-4 backdrop-blur-xl shadow-xl flex flex-col justify-between">
           <form onSubmit={handleExecuteOrder} className="space-y-4">
             {/* Buy / Sell Tabs */}
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/90 p-1 border border-slate-800">
