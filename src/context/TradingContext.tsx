@@ -30,13 +30,9 @@ import {
 import { verifyTOTP } from '../utils/totp';
 import { 
   INITIAL_CRYPTO_ASSETS, 
-  INITIAL_TRANSACTIONS, 
   STAKING_POOLS, 
-  INITIAL_LOANS, 
   INITIAL_KYC_USERS,
   MINING_PLANS,
-  INITIAL_MINING_CONTRACTS,
-  INITIAL_ORDER_HISTORY,
   generateInitialCandles,
   generateOrderBook,
   generateMarketTrades
@@ -180,7 +176,6 @@ interface TradingContextType {
   startMiningContract: (planId: string, amount: number) => { success: boolean; message: string };
   claimMiningReward: (contractId: string) => { success: boolean; message: string };
   terminateMiningContract: (contractId: string) => { success: boolean; message: string };
-  addDemoUsdt: (amount: number) => void;
 
   // Authentication & Session
   currentUser: UserSession | null;
@@ -457,6 +452,53 @@ export const INITIAL_FUTURE_HISTORY: FutureContractPosition[] = [
   }
 ];
 
+const MEMBER_STORAGE_SCHEMA_VERSION = '2';
+const MEMBER_STORAGE_SCHEMA_KEY = 'prism_member_storage_schema_version';
+const LEGACY_MEMBER_TRADING_KEYS = [
+  'prism_wallet',
+  'prism_assets',
+  'prism_txs',
+  'prism_order_history',
+  'prism_staking',
+  'prism_loans',
+  'prism_client_accounts',
+  'prism_mining_contracts',
+  'prism_future_positions',
+  'prism_future_history'
+];
+
+const migrateLegacyMemberTradingStorage = () => {
+  const currentVersion = localStorage.getItem(MEMBER_STORAGE_SCHEMA_KEY);
+  if (currentVersion === MEMBER_STORAGE_SCHEMA_VERSION) return;
+
+  LEGACY_MEMBER_TRADING_KEYS.forEach(key => localStorage.removeItem(key));
+  localStorage.setItem(MEMBER_STORAGE_SCHEMA_KEY, MEMBER_STORAGE_SCHEMA_VERSION);
+};
+
+const buildCleanWalletState = (): UserWallet => ({
+  isConnected: false,
+  address: '0x8f3C9e...7B4A',
+  network: 'Arbitrum One',
+  usdtBalance: 0,
+  assets: {}
+});
+
+const buildCleanCryptoAssetsState = (): CryptoAsset[] =>
+  INITIAL_CRYPTO_ASSETS.map(asset => ({
+    ...asset,
+    balance: 0,
+    lockedBalance: 0
+  }));
+
+const buildCleanStakingPoolsState = (): StakingPool[] =>
+  STAKING_POOLS.map(pool => ({
+    ...pool,
+    userStaked: 0,
+    earnedRewards: 0
+  }));
+
+migrateLegacyMemberTradingStorage();
+
 const TradingContext = createContext<TradingContextType | undefined>(undefined);
 
 export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -490,7 +532,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Market & Asset State
   const [cryptoAssets, setCryptoAssets] = useState<CryptoAsset[]>(() => {
     const saved = localStorage.getItem('prism_assets');
-    return saved ? JSON.parse(saved) : INITIAL_CRYPTO_ASSETS;
+    return saved ? JSON.parse(saved) : buildCleanCryptoAssetsState();
   });
 
   const [selectedAssetId, setSelectedAssetIdState] = useState<string>('bitcoin');
@@ -506,23 +548,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // User State
   const [wallet, setWallet] = useState<UserWallet>(() => {
     const saved = localStorage.getItem('prism_wallet');
-    const baseWallet = saved ? JSON.parse(saved) : {
-      isConnected: false,
-      address: '0x8f3C9e...7B4A',
-      network: 'Arbitrum One',
-      usdtBalance: 28450.00,
-      assets: {
-        'BTC': 0.8542,
-        'ETH': 6.25,
-        'SOL': 45.8,
-        'PRISM': 2450.0,
-        'LINK': 180.0,
-        'AVAX': 85.0,
-        'NEAR': 320.0,
-        'UNI': 110.0,
-        'ARB': 1500.0
-      }
-    };
+    const baseWallet = saved ? JSON.parse(saved) : buildCleanWalletState();
     const savedSession = localStorage.getItem('prism_user_session');
     if (savedSession) {
       baseWallet.isConnected = true;
@@ -530,34 +556,11 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return baseWallet;
   });
 
-  const [userOrders, setUserOrders] = useState<UserOrder[]>([
-    {
-      id: 'ord-101',
-      pair: 'BTC/USDT',
-      type: 'buy',
-      orderType: 'limit',
-      price: 87500.00,
-      amount: 0.15,
-      filled: 0,
-      status: 'open',
-      createdAt: '10 mins ago'
-    },
-    {
-      id: 'ord-102',
-      pair: 'SOL/USDT',
-      type: 'sell',
-      orderType: 'limit',
-      price: 198.00,
-      amount: 10.0,
-      filled: 0,
-      status: 'open',
-      createdAt: '1 hour ago'
-    }
-  ]);
+  const [userOrders, setUserOrders] = useState<UserOrder[]>([]);
 
   const [orderHistory, setOrderHistory] = useState<CompletedSpotTrade[]>(() => {
     const saved = localStorage.getItem('prism_order_history');
-    return saved ? JSON.parse(saved) : INITIAL_ORDER_HISTORY;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const clearOrderHistory = useCallback(() => {
@@ -566,17 +569,17 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     const saved = localStorage.getItem('prism_txs');
-    return saved ? JSON.parse(saved) : INITIAL_TRANSACTIONS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [stakingPools, setStakingPools] = useState<StakingPool[]>(() => {
     const saved = localStorage.getItem('prism_staking');
-    return saved ? JSON.parse(saved) : STAKING_POOLS;
+    return saved ? JSON.parse(saved) : buildCleanStakingPoolsState();
   });
 
   const [loans, setLoans] = useState<CryptoLoanPosition[]>(() => {
     const saved = localStorage.getItem('prism_loans');
-    return saved ? JSON.parse(saved) : INITIAL_LOANS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [autoCompound, setAutoCompound] = useState<boolean>(true);
@@ -587,10 +590,10 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const saved = localStorage.getItem('prism_client_accounts');
     if (saved) return JSON.parse(saved);
 
-    return INITIAL_KYC_USERS.map((user, index) => ({
+    return INITIAL_KYC_USERS.map((user) => ({
       ...user,
-      usdtBalance: [28450, 12500, 8750][index] || 0,
-      assets: index === 0 ? { BTC: 0.8542, ETH: 6.25, SOL: 45.8 } : {},
+      usdtBalance: 0,
+      assets: {},
       accountLocked: false
     }));
   });
@@ -867,7 +870,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [miningPlans] = useState<MiningPlan[]>(MINING_PLANS);
   const [activeMiningContracts, setActiveMiningContracts] = useState<ActiveMiningContract[]>(() => {
     const saved = localStorage.getItem('prism_mining_contracts');
-    return saved ? JSON.parse(saved) : INITIAL_MINING_CONTRACTS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
@@ -888,7 +891,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (wallet.usdtBalance < amount) {
       return { 
         success: false, 
-        message: `Insufficient USDT balance (${wallet.usdtBalance.toLocaleString()} USDT). Please use 'Quick Demo Deposit' to test this contract tier.` 
+        message: `Insufficient USDT balance (${wallet.usdtBalance.toLocaleString()} USDT). Deposit funds to start this mining contract tier.` 
       };
     }
 
@@ -1036,13 +1039,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  const addDemoUsdt = useCallback((amount: number) => {
-    setWallet(prev => ({
-      ...prev,
-      usdtBalance: parseFloat((prev.usdtBalance + amount).toFixed(2))
-    }));
-  }, []);
-
   // Future Contract Trading States & Handlers
   const [futurePositions, setFuturePositions] = useState<FutureContractPosition[]>(() => {
     const saved = localStorage.getItem('prism_future_positions');
@@ -1051,7 +1047,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [futureHistory, setFutureHistory] = useState<FutureContractPosition[]>(() => {
     const saved = localStorage.getItem('prism_future_history');
-    return saved ? JSON.parse(saved) : INITIAL_FUTURE_HISTORY;
+    return saved ? JSON.parse(saved) : [];
   });
 
   useEffect(() => {
@@ -2719,7 +2715,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         startMiningContract,
         claimMiningReward,
         terminateMiningContract,
-        addDemoUsdt,
         currentUser,
         isAuthenticated,
         loginWithCredentials,

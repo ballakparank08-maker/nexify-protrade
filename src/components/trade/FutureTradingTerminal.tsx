@@ -347,7 +347,7 @@ export const FutureTradingTerminal: React.FC = () => {
 
     if (wallet.usdtBalance < effectiveInvestment) {
       setOrderToast({ 
-        message: `Insufficient USDT balance (${wallet.usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT available). Need ${effectiveInvestment.toLocaleString()} USDT for Level ${selectedTier.level}. Please top up demo balance below.`, 
+      message: `Insufficient USDT balance (${wallet.usdtBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT available). Need ${effectiveInvestment.toLocaleString()} USDT for Level ${selectedTier.level}. Deposit funds to continue.`, 
         type: 'error' 
       });
       return;

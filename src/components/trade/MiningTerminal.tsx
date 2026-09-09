@@ -15,7 +15,6 @@ import {
   Gauge, 
   RefreshCw, 
   Layers, 
-  Plus,
   HelpCircle
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
@@ -29,7 +28,6 @@ export const MiningTerminal: React.FC = () => {
     claimMiningReward, 
     terminateMiningContract, 
     wallet, 
-    addDemoUsdt,
     formatCurrency
   } = useTrading();
 
@@ -153,7 +151,7 @@ export const MiningTerminal: React.FC = () => {
             </div>
           </div>
 
-          {/* User Available Balance & Quick Faucet */}
+          {/* User Available Balance */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-[#0c1329] border border-slate-800 p-4 rounded-xl">
             <div>
               <span className="text-xs text-slate-400 font-mono">Available Wallet Balance</span>
@@ -162,26 +160,9 @@ export const MiningTerminal: React.FC = () => {
                 <span className="text-xs text-slate-400 font-normal">USDT</span>
               </div>
             </div>
-            <div className="flex sm:flex-col gap-2">
-              <button
-                id="mining-add-test-funds-btn"
-                onClick={() => addDemoUsdt(50000)}
-                title="Add 50,000 USDT to test high-tier mining plans"
-                className="flex items-center space-x-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                <span>+50k Demo USDT</span>
-              </button>
-              <button
-                id="mining-add-whale-funds-btn"
-                onClick={() => addDemoUsdt(500000)}
-                title="Add 500,000 USDT for VIP 90-Day Tier"
-                className="flex items-center space-x-1 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium transition-colors"
-              >
-                <Plus className="h-3 w-3" />
-                <span>+500k VIP USDT</span>
-              </button>
-            </div>
+            <p className="text-xs font-mono text-slate-400 max-w-[220px]">
+              Mining starts from zero balance. Deposit real funds to deploy a contract.
+            </p>
           </div>
         </div>
 
