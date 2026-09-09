@@ -78,7 +78,7 @@ export const Header: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800/80 bg-[#070b16]/95 backdrop-blur-md">
       {/* Multi-Domain Architecture Switcher Bar */}
-      <div className="flex flex-wrap items-center justify-between border-b border-white/10 bg-[#040711] px-4 sm:px-6 py-2 text-xs">
+      <div className="hidden">
         <div className="flex items-center space-x-2">
           <span className="text-slate-300 text-xs font-mono uppercase tracking-wider flex items-center font-medium">
             <Globe className="mr-1.5 h-3.5 w-3.5 text-purple-400" />
