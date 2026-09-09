@@ -265,6 +265,30 @@ const INITIAL_PRICE_ALERTS: PriceAlert[] = [
 
 const LEGACY_AUTH_KEYS = ['prism_user_session', 'prism_registered_emails'];
 
+const createEmptyWallet = (): UserWallet => ({
+  isConnected: false,
+  address: null,
+  network: 'Arbitrum One',
+  usdtBalance: 0,
+  assets: {},
+});
+
+const getWalletStorageKey = (userId: string) => `prism_wallet_${userId}`;
+
+const getStoredWallet = (userId: string): UserWallet => {
+  const saved = localStorage.getItem(getWalletStorageKey(userId));
+
+  if (!saved) {
+    return createEmptyWallet();
+  }
+
+  try {
+    return { ...createEmptyWallet(), ...JSON.parse(saved), isConnected: true };
+  } catch {
+    return createEmptyWallet();
+  }
+};
+
 const mapAuthenticatedUser = (user: AuthenticatedUser): UserSession => ({
   id: user.id,
   email: user.email,
@@ -469,26 +493,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [marketTrades, setMarketTrades] = useState<MarketTrade[]>(() => generateMarketTrades(selectedAsset.price));
 
   // User State
-  const [wallet, setWallet] = useState<UserWallet>(() => {
-    const saved = localStorage.getItem('prism_wallet');
-    return saved ? JSON.parse(saved) : {
-      isConnected: false,
-      address: '0x8f3C9e...7B4A',
-      network: 'Arbitrum One',
-      usdtBalance: 28450.00,
-      assets: {
-        'BTC': 0.8542,
-        'ETH': 6.25,
-        'SOL': 45.8,
-        'PRISM': 2450.0,
-        'LINK': 180.0,
-        'AVAX': 85.0,
-        'NEAR': 320.0,
-        'UNI': 110.0,
-        'ARB': 1500.0
-      }
-    };
-  });
+  const [wallet, setWallet] = useState<UserWallet>(createEmptyWallet);
 
   const [userOrders, setUserOrders] = useState<UserOrder[]>([
     {
@@ -796,8 +801,13 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Persistence
   useEffect(() => {
-    localStorage.setItem('prism_wallet', JSON.stringify(wallet));
-  }, [wallet]);
+    if (!currentUser) {
+      return;
+    }
+
+    const walletToStore = { ...wallet, isConnected: true };
+    localStorage.setItem(getWalletStorageKey(currentUser.id), JSON.stringify(walletToStore));
+  }, [currentUser, wallet]);
 
   useEffect(() => {
     localStorage.setItem('prism_client_accounts', JSON.stringify(clientAccounts));
@@ -1602,11 +1612,12 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       try {
         const { user } = await authService.me();
-        setCurrentUser(mapAuthenticatedUser(user));
-        setWallet(prev => ({ ...prev, isConnected: true }));
+        const sessionUser = mapAuthenticatedUser(user);
+        setCurrentUser(sessionUser);
+        setWallet({ ...getStoredWallet(sessionUser.id), isConnected: true });
       } catch {
         setCurrentUser(null);
-        setWallet(prev => ({ ...prev, isConnected: false }));
+        setWallet(createEmptyWallet());
       } finally {
         setAuthReady(true);
       }
@@ -1651,7 +1662,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { user } = await authService.login({ email, password: password || '' });
       const sessionUser = mapAuthenticatedUser(user);
       setCurrentUser(sessionUser);
-      setWallet(prev => ({ ...prev, isConnected: true }));
+      setWallet({ ...getStoredWallet(sessionUser.id), isConnected: true });
       addSecurityAuditLog(`Credential Sign-in Success: ${sessionUser.email}`, 'success');
       return { success: true };
     } catch (error) {
@@ -1666,7 +1677,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const { user } = await authService.register({ name, email, password });
       const sessionUser = mapAuthenticatedUser(user);
       setCurrentUser(sessionUser);
-      setWallet(prev => ({ ...prev, isConnected: true }));
+      setWallet({ ...createEmptyWallet(), isConnected: true });
       addSecurityAuditLog(`New member account created: ${sessionUser.email}`, 'success');
       return { success: true };
     } catch (error) {
@@ -1693,7 +1704,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentUser(null);
     setAdminAccessVerified(false);
     setAdminAccessLoading(false);
-    setWallet(prev => ({ ...prev, isConnected: false }));
+    setWallet(createEmptyWallet());
     setIsSettingsModalOpen(false);
     setCurrentDomain('landing');
   };
