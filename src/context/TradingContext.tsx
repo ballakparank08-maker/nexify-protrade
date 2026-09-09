@@ -231,6 +231,14 @@ const FUTURE_CONTRACT_RULES = {
   360: { amount: 500000, profitRate: 0.70 }
 } as const;
 
+const EMPTY_WALLET: UserWallet = {
+  isConnected: false,
+  address: null,
+  network: 'Arbitrum One',
+  usdtBalance: 0,
+  assets: {}
+};
+
 const INITIAL_PRICE_ALERTS: PriceAlert[] = [
   {
     id: 'alert-btc-breakout',
@@ -494,25 +502,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // User State
   const [wallet, setWallet] = useState<UserWallet>(() => {
-    const saved = localStorage.getItem('prism_wallet');
-    const baseWallet = saved ? JSON.parse(saved) : {
-      isConnected: false,
-      address: '0x8f3C9e...7B4A',
-      network: 'Arbitrum One',
-      usdtBalance: 28450.00,
-      assets: {
-        'BTC': 0.8542,
-        'ETH': 6.25,
-        'SOL': 45.8,
-        'PRISM': 2450.0,
-        'LINK': 180.0,
-        'AVAX': 85.0,
-        'NEAR': 320.0,
-        'UNI': 110.0,
-        'ARB': 1500.0
-      }
-    };
-    return baseWallet;
+    return { ...EMPTY_WALLET };
   });
 
   const loadFirebaseProfile = useCallback(async (userId: string, email: string) => {
@@ -535,6 +525,23 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: 'Your secure profile could not be loaded. Contact an administrator.' };
     }
 
+    const walletRef = doc(firestore, 'wallets', userId);
+    let walletSnapshot = await getDoc(walletRef);
+    if (!walletSnapshot.exists()) {
+      await setDoc(walletRef, {
+        usdtBalance: 0,
+        assets: {},
+        network: EMPTY_WALLET.network,
+        createdAt: new Date().toISOString()
+      });
+      walletSnapshot = await getDoc(walletRef);
+    }
+    const storedWallet = walletSnapshot.data();
+    if (!storedWallet || typeof storedWallet.usdtBalance !== 'number' || typeof storedWallet.assets !== 'object') {
+      setCurrentUser(null);
+      return { success: false, error: 'Your wallet could not be loaded. Contact an administrator.' };
+    }
+
     const account: UserSession = {
       id: userId,
       email: profile.email || email,
@@ -549,7 +556,13 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ipAddress: 'Firebase authenticated session'
     };
     setCurrentUser(account);
-    setWallet(previous => ({ ...previous, isConnected: true }));
+    setWallet({
+      isConnected: true,
+      address: typeof storedWallet.address === 'string' ? storedWallet.address : null,
+      network: typeof storedWallet.network === 'string' ? storedWallet.network : EMPTY_WALLET.network,
+      usdtBalance: storedWallet.usdtBalance,
+      assets: storedWallet.assets as Record<string, number>
+    });
     return { success: true, account };
   }, []);
 
@@ -561,7 +574,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         void loadFirebaseProfile(user.uid, user.email);
       } else {
         setCurrentUser(null);
-        setWallet(previous => ({ ...previous, isConnected: false }));
+        setWallet({ ...EMPTY_WALLET });
       }
     });
 
@@ -870,10 +883,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [cryptoAssets, soundEnabled, playAlertSound]);
 
   // Persistence
-  useEffect(() => {
-    localStorage.setItem('prism_wallet', JSON.stringify(wallet));
-  }, [wallet]);
-
   useEffect(() => {
     if (!firestore || currentUser?.role !== 'admin') return;
 
@@ -1722,7 +1731,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     if (firebaseAuth) void signOut(firebaseAuth);
     setCurrentUser(null);
-    setWallet(prev => ({ ...prev, isConnected: false }));
+    setWallet({ ...EMPTY_WALLET });
   };
 
   const enable2FA = (secret: string, backupCodes: string[]) => {
