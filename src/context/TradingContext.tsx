@@ -48,6 +48,8 @@ import {
   LiveDepthPayload,
   SUPPORTED_MARKET_ASSETS
 } from '../services/marketDataService';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import type { Session as SupabaseSession, User as SupabaseUser } from '@supabase/supabase-js';
 
 interface TradingContextType {
   // Navigation & Domain
@@ -1652,9 +1654,102 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, requires2FA: false };
   };
 
+  // ---------------------------------------------------------------------------
+  // Supabase-backed auth (Phase 1)
+  // ---------------------------------------------------------------------------
+
+  const profileRowToUserSession = (
+    supaUser: SupabaseUser,
+    profile: Record<string, any> | null
+  ): UserSession => {
+    const fallbackName =
+      (supaUser.user_metadata?.name as string | undefined) ||
+      (supaUser.email ? supaUser.email.split('@')[0] : 'Trader');
+    return {
+      id: supaUser.id,
+      email: profile?.email || supaUser.email || '',
+      name: profile?.name || fallbackName,
+      role: (profile?.role as 'trader' | 'admin') || 'trader',
+      institution: profile?.institution || DEFAULT_DEMO_TRADER.institution,
+      walletAddress: profile?.wallet_address || DEFAULT_DEMO_TRADER.walletAddress,
+      loginMethod: (profile?.login_method as UserSession['loginMethod']) || 'credentials',
+      twoFactorEnabled: Boolean(profile?.two_factor_enabled),
+      twoFactorSecret: profile?.two_factor_secret || undefined,
+      twoFactorVerifiedAt: profile?.two_factor_verified_at || undefined,
+      backupCodes: Array.isArray(profile?.backup_codes) ? profile!.backup_codes : [],
+      sessionTimeoutMinutes: profile?.session_timeout_minutes ?? 30,
+      antiPhishingCode: profile?.anti_phishing_code || DEFAULT_DEMO_TRADER.antiPhishingCode,
+      whitelistWithdrawals: profile?.whitelist_withdrawals ?? true,
+      lastLoginTime: profile?.last_login_time || 'Just now',
+      ipAddress: profile?.ip_address || DEFAULT_DEMO_TRADER.ipAddress
+    };
+  };
+
+  const hydrateFromSupabaseSession = useCallback(async (session: SupabaseSession | null) => {
+    if (!session?.user) return null;
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error && import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn('[supabase] Failed to load profile:', error.message);
+    }
+    const account = profileRowToUserSession(session.user, profile);
+    setCurrentUser(account);
+    localStorage.setItem('prism_user_session', JSON.stringify(account));
+    setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
+    return account;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Bootstrap: read existing Supabase session on load and subscribe to changes.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) void hydrateFromSupabaseSession(data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      if (session?.user) {
+        void hydrateFromSupabaseSession(session);
+      } else {
+        setCurrentUser(null);
+        localStorage.removeItem('prism_user_session');
+        setWallet(prev => ({ ...prev, isConnected: false }));
+      }
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [hydrateFromSupabaseSession]);
+
   const loginWithCredentials = async (email: string, password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = (password || '').trim();
+
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword
+      });
+      if (error || !data.session) {
+        addSecurityAuditLog(`Failed sign-in for ${cleanEmail}`, 'failed');
+        return { success: false, error: error?.message || 'Invalid email or password.' };
+      }
+      const account = await hydrateFromSupabaseSession(data.session);
+      if (account?.twoFactorEnabled) {
+        addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
+        return { success: true, requires2FA: true, tempUser: account };
+      }
+      addSecurityAuditLog(`Credential Sign-in Success: ${cleanEmail}`, 'success');
+      return { success: true, requires2FA: false };
+    }
+
+    // Legacy localStorage flow (only when Supabase env is missing).
     const isAdminAttempt = cleanEmail === SUPER_ADMIN_EMAIL || cleanEmail.includes('admin');
 
     if (isAdminAttempt) {
@@ -1738,6 +1833,29 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: 'This email address is not available for self-registration.' };
     }
 
+    if (isSupabaseConfigured) {
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password,
+        options: { data: { name: cleanName, role: 'trader' } }
+      });
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      if (data.session) {
+        await hydrateFromSupabaseSession(data.session);
+        addSecurityAuditLog(`New member account created: ${cleanEmail}`, 'success');
+        return { success: true };
+      }
+      // Email confirmation required.
+      addSecurityAuditLog(`Signup pending email confirmation: ${cleanEmail}`, 'warning');
+      return {
+        success: false,
+        error: 'Account created. Please check your email to confirm before signing in.'
+      };
+    }
+
+    // Legacy localStorage flow (Supabase not configured).
     const existingRegistryRaw = localStorage.getItem('prism_registered_emails');
     const existingRegistry: string[] = existingRegistryRaw ? JSON.parse(existingRegistryRaw) : [];
     if (existingRegistry.includes(cleanEmail)) {
@@ -1836,6 +1954,9 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const logout = () => {
     if (currentUser) {
       addSecurityAuditLog(`Trader Session Terminated (${currentUser.email})`, 'success');
+    }
+    if (isSupabaseConfigured) {
+      void supabase.auth.signOut();
     }
     setCurrentUser(null);
     localStorage.removeItem('prism_user_session');
