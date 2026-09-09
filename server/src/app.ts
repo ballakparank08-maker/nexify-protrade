@@ -1,6 +1,7 @@
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { type Request, type Response, type NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
 import type { CookieOptions } from 'express';
 import { bootstrapAdminUser, deleteSession, findUserBySessionToken, loginUser, registerUser, type PublicUser } from './auth.js';
 import type { AuthConfig } from './config.js';
@@ -57,34 +58,16 @@ const requireRole = (role: PublicUser['role']) => (request: AuthenticatedRequest
   next();
 };
 
-const createRateLimiter = (limit: number, windowMs: number) => {
-  const attempts = new Map<string, { count: number; windowStartedAt: number }>();
-
-  return (request: Request, response: Response, next: NextFunction) => {
-    const now = Date.now();
-    const requestKey = `${request.ip || request.socket.remoteAddress || 'unknown'}:${request.path}`;
-    const current = attempts.get(requestKey);
-
-    if (!current || now - current.windowStartedAt >= windowMs) {
-      attempts.set(requestKey, { count: 1, windowStartedAt: now });
-      next();
-      return;
-    }
-
-    if (current.count >= limit) {
-      response.status(429).json({ message: 'Too many authentication attempts. Please try again later.' });
-      return;
-    }
-
-    current.count += 1;
-    next();
-  };
-};
-
 export const createApp = ({ db, config }: AppDependencies) => {
   const app = express();
   const cookieOptions = buildCookieOptions(config);
-  const authAttemptLimiter = createRateLimiter(10, 15 * 60 * 1000);
+  const authAttemptLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many authentication attempts. Please try again later.' },
+  });
   const clearCookieOptions: CookieOptions = {
     httpOnly: true,
     secure: config.cookieSecure,
