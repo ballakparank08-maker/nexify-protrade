@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { randomBytes } from 'node:crypto';
 import { config, normalizeEmail } from './config.js';
 import { userStore } from './userStore.js';
@@ -120,11 +121,38 @@ const clearAdminAttemptRecord = (key) => {
   adminLoginAttempts.delete(key);
 };
 
-const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isLikelyValidEmail = (value) => {
+  if (!value || value.length > 254) return false;
+  const atIndex = value.indexOf('@');
+  if (atIndex <= 0 || atIndex !== value.lastIndexOf('@')) return false;
+
+  const localPart = value.slice(0, atIndex);
+  const domainPart = value.slice(atIndex + 1);
+  if (!localPart || !domainPart || domainPart.startsWith('.') || domainPart.endsWith('.')) {
+    return false;
+  }
+
+  const dotIndex = domainPart.lastIndexOf('.');
+  return dotIndex > 0 && dotIndex < domainPart.length - 1;
+};
 
 export const createApp = () => {
   const app = express();
   app.use(express.json());
+  const authLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts. Please try again later.' }
+  });
+  const adminLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts. Please try again later.' }
+  });
 
   app.get('/api/config/admin-login-path', (_req, res) => {
     res.json({ adminLoginPath: config.adminLoginPath });
@@ -178,7 +206,7 @@ export const createApp = () => {
     return next();
   };
 
-  app.post('/api/auth/register', async (req, res) => {
+  app.post('/api/auth/register', authLoginLimiter, async (req, res) => {
     const { email, password, name } = req.body || {};
     const cleanEmail = normalizeEmail(String(email || ''));
     const cleanName = String(name || '').trim();
@@ -188,7 +216,7 @@ export const createApp = () => {
       return res.status(400).json({ error: 'Please enter your full name (at least 2 characters).' });
     }
 
-    if (!emailRegex.test(cleanEmail)) {
+    if (!isLikelyValidEmail(cleanEmail)) {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
 
@@ -206,7 +234,7 @@ export const createApp = () => {
     }
   });
 
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', authLoginLimiter, async (req, res) => {
     const { email, password } = req.body || {};
     const cleanEmail = normalizeEmail(String(email || ''));
     const cleanPassword = String(password || '');
@@ -221,7 +249,7 @@ export const createApp = () => {
     return res.json({ user: userStore.sanitizeUser(user) });
   });
 
-  app.post('/api/admin/login', async (req, res) => {
+  app.post('/api/admin/login', adminLoginLimiter, async (req, res) => {
     const { email, password } = req.body || {};
     const cleanEmail = normalizeEmail(String(email || ''));
     const cleanPassword = String(password || '');

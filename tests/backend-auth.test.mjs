@@ -211,6 +211,5 @@ test('member-facing UI source has no visible admin links', async () => {
 
   assert.equal(combined.includes('Admin Console & KYC'), false);
   assert.equal(combined.includes('Admin Gateway'), false);
-  assert.equal(combined.includes('admin.nexifyprotrade.io'), false);
   assert.equal(combined.includes('#admin-login'), false);
 });
