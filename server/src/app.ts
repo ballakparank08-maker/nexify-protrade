@@ -57,9 +57,34 @@ const requireRole = (role: PublicUser['role']) => (request: AuthenticatedRequest
   next();
 };
 
+const createRateLimiter = (limit: number, windowMs: number) => {
+  const attempts = new Map<string, { count: number; windowStartedAt: number }>();
+
+  return (request: Request, response: Response, next: NextFunction) => {
+    const now = Date.now();
+    const requestKey = `${request.ip || request.socket.remoteAddress || 'unknown'}:${request.path}`;
+    const current = attempts.get(requestKey);
+
+    if (!current || now - current.windowStartedAt >= windowMs) {
+      attempts.set(requestKey, { count: 1, windowStartedAt: now });
+      next();
+      return;
+    }
+
+    if (current.count >= limit) {
+      response.status(429).json({ message: 'Too many authentication attempts. Please try again later.' });
+      return;
+    }
+
+    current.count += 1;
+    next();
+  };
+};
+
 export const createApp = ({ db, config }: AppDependencies) => {
   const app = express();
   const cookieOptions = buildCookieOptions(config);
+  const authAttemptLimiter = createRateLimiter(10, 15 * 60 * 1000);
   const clearCookieOptions: CookieOptions = {
     httpOnly: true,
     secure: config.cookieSecure,
@@ -99,7 +124,7 @@ export const createApp = ({ db, config }: AppDependencies) => {
     response.json({ ok: true });
   });
 
-  app.post('/api/auth/register', (request, response) => {
+  app.post('/api/auth/register', authAttemptLimiter, (request, response) => {
     const result = registerUser(db, config, request.body ?? {});
     if ('error' in result) {
       response.status(result.status).json({ message: result.error });
@@ -110,7 +135,7 @@ export const createApp = ({ db, config }: AppDependencies) => {
     response.status(result.status).json({ user: result.data.user });
   });
 
-  app.post('/api/auth/login', (request, response) => {
+  app.post('/api/auth/login', authAttemptLimiter, (request, response) => {
     const email = typeof request.body?.email === 'string' ? request.body.email : '';
     const password = typeof request.body?.password === 'string' ? request.body.password : '';
 

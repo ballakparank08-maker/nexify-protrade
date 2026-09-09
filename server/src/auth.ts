@@ -23,7 +23,6 @@ export interface AdminBootstrapInput {
   password: string;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_MIN_LENGTH = 8;
 const BCRYPT_ROUNDS = 12;
 
@@ -61,7 +60,18 @@ const validatePassword = (password: string) => {
 
 const validateEmail = (email: string) => {
   const normalized = normalizeEmail(email);
-  if (!EMAIL_PATTERN.test(normalized)) {
+  const atIndex = normalized.indexOf('@');
+  const hasSingleAt = atIndex > 0 && atIndex === normalized.lastIndexOf('@');
+  const localPart = hasSingleAt ? normalized.slice(0, atIndex) : '';
+  const domainPart = hasSingleAt ? normalized.slice(atIndex + 1) : '';
+  const isValidDomain =
+    domainPart.length >= 3 &&
+    domainPart.includes('.') &&
+    !domainPart.startsWith('.') &&
+    !domainPart.endsWith('.') &&
+    !domainPart.includes('..');
+
+  if (!localPart || !isValidDomain || normalized.includes(' ')) {
     return 'Please enter a valid email address.';
   }
   return null;
