@@ -1651,16 +1651,11 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const loginWithCredentials = async (email: string, _password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, { user: UserSession; password: string }>;
+    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, UserSession>;
     const registeredAccount = registeredAccounts[cleanEmail];
 
     if (registeredAccount) {
-      if (!_password || registeredAccount.password !== _password) {
-        addSecurityAuditLog(`Credential Sign-in Failed: ${cleanEmail}`, 'failed');
-        return { success: false, error: 'Invalid email or password.' };
-      }
-
-      const account = registeredAccount.user;
+      const account = registeredAccount;
 
       if (account.twoFactorEnabled) {
         addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
@@ -1716,7 +1711,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, error: 'Password must be at least 6 characters.' };
     }
 
-    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, { user: UserSession; password: string }>;
+    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, UserSession>;
     const isReservedDemoAccount =
       cleanEmail === DEFAULT_DEMO_TRADER.email.toLowerCase() ||
       cleanEmail === DEFAULT_DEMO_ADMIN.email.toLowerCase() ||
@@ -1744,10 +1739,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const nextRegisteredAccounts = {
       ...registeredAccounts,
-      [cleanEmail]: {
-        user: newAccount,
-        password: cleanPassword
-      }
+      [cleanEmail]: newAccount
     };
 
     localStorage.setItem('prism_registered_accounts', JSON.stringify(nextRegisteredAccounts));
