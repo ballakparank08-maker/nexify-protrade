@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
   AppDomain, 
   AppTab, 
@@ -125,9 +125,9 @@ interface TradingContextType {
 
   // Admin Controls
   kycUsers: KYCUserRecord[];
-  updateKycStatus: (id: string, status: 'verified' | 'rejected') => void;
+  updateKycStatus: (id: string, status: KYCUserRecord['kycStatus']) => Promise<{ success: boolean; message: string }>;
   clientAccounts: ClientAccount[];
-  updateClientAccount: (id: string, updates: ClientAccount) => { success: boolean; message: string };
+  updateClientAccount: (id: string, updates: ClientAccount) => Promise<{ success: boolean; message: string }>;
   circuitBreakerActive: boolean;
   toggleCircuitBreaker: () => void;
   engineLatencyMs: number;
@@ -622,9 +622,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Admin states
   const [kycUsers, setKycUsers] = useState<KYCUserRecord[]>(INITIAL_KYC_USERS);
   const [clientAccounts, setClientAccounts] = useState<ClientAccount[]>(() => {
-    const saved = localStorage.getItem('prism_client_accounts');
-    if (saved) return JSON.parse(saved);
-
     return INITIAL_KYC_USERS.map((user, index) => ({
       ...user,
       usdtBalance: [28450, 12500, 8750][index] || 0,
@@ -878,8 +875,20 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [wallet]);
 
   useEffect(() => {
-    localStorage.setItem('prism_client_accounts', JSON.stringify(clientAccounts));
-  }, [clientAccounts]);
+    if (!firestore || currentUser?.role !== 'admin') return;
+
+    const accountsRef = collection(firestore, 'clientAccounts');
+    return onSnapshot(accountsRef, snapshot => {
+      if (snapshot.empty) {
+        void Promise.all(clientAccounts.map(account => setDoc(doc(accountsRef, account.id), account)))
+          .catch(error => console.error('Unable to seed Firebase client accounts', error));
+        return;
+      }
+      const accounts = snapshot.docs.map(account => account.data() as ClientAccount);
+      setClientAccounts(accounts);
+      setKycUsers(accounts.map(({ usdtBalance: _usdtBalance, assets: _assets, accountLocked: _accountLocked, ...kyc }) => kyc));
+    });
+  }, [currentUser?.role]);
 
   useEffect(() => {
     localStorage.setItem('prism_assets', JSON.stringify(cryptoAssets));
@@ -2351,12 +2360,24 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Admin controls
-  const updateKycStatus = (id: string, status: 'verified' | 'rejected') => {
+  const updateKycStatus = async (id: string, status: KYCUserRecord['kycStatus']) => {
+    if (currentUser?.role !== 'admin') {
+      return { success: false, message: 'Administrator authorization is required to update KYC status.' };
+    }
+    if (!firestore) {
+      return { success: false, message: 'Firebase database is not configured.' };
+    }
+    try {
+      await setDoc(doc(firestore, 'clientAccounts', id), { kycStatus: status }, { merge: true });
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unable to update KYC status.' };
+    }
     setKycUsers(prev => prev.map(u => u.id === id ? { ...u, kycStatus: status } : u));
     setClientAccounts(prev => prev.map(account => account.id === id ? { ...account, kycStatus: status } : account));
+    return { success: true, message: 'KYC status updated.' };
   };
 
-  const updateClientAccount = (id: string, updates: ClientAccount) => {
+  const updateClientAccount = async (id: string, updates: ClientAccount) => {
     if (currentUser?.role !== 'admin') {
       return { success: false, message: 'Administrator authorization is required to update client accounts.' };
     }
@@ -2370,7 +2391,19 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, message: 'That client ID is already in use.' };
     }
 
-    setClientAccounts(prev => prev.map(account => account.id === id ? updates : account));
+    if (!firestore) {
+      return { success: false, message: 'Firebase database is not configured.' };
+    }
+
+    try {
+      const originalRef = doc(firestore, 'clientAccounts', id);
+      const updatedRef = doc(firestore, 'clientAccounts', updates.id);
+      await setDoc(updatedRef, updates);
+      if (updates.id !== id) await deleteDoc(originalRef);
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unable to update the client account.' };
+    }
+
     setKycUsers(prev => prev.map(user => user.id === id ? {
       id: updates.id,
       fullName: updates.fullName,

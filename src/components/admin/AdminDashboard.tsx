@@ -65,9 +65,9 @@ export const AdminDashboard: React.FC = () => {
     if (displayedClient) setClientDraft({ ...displayedClient, ...updates });
   };
 
-  const saveClientAccount = () => {
+  const saveClientAccount = async () => {
     if (!displayedClient || !selectedClient) return;
-    const result = updateClientAccount(selectedClient.id, displayedClient);
+    const result = await updateClientAccount(selectedClient.id, displayedClient);
     setAdminActionMsg(result.message);
     if (result.success) {
       setSelectedClientId(displayedClient.id);
@@ -162,15 +162,15 @@ export const AdminDashboard: React.FC = () => {
     return true;
   });
 
-  const handleApproveKyc = (id: string, name: string) => {
-    updateKycStatus(id, 'verified');
-    setAdminActionMsg(`Approved KYC verification for ${name}.`);
+  const handleApproveKyc = async (id: string, name: string) => {
+    const result = await updateKycStatus(id, 'verified');
+    setAdminActionMsg(result.success ? `Approved KYC verification for ${name}.` : result.message);
     setTimeout(() => setAdminActionMsg(null), 3000);
   };
 
-  const handleRejectKyc = (id: string, name: string) => {
-    updateKycStatus(id, 'rejected');
-    setAdminActionMsg(`Rejected KYC verification for ${name}.`);
+  const handleRejectKyc = async (id: string, name: string) => {
+    const result = await updateKycStatus(id, 'rejected');
+    setAdminActionMsg(result.success ? `Rejected KYC verification for ${name}.` : result.message);
     setTimeout(() => setAdminActionMsg(null), 3000);
   };
 
