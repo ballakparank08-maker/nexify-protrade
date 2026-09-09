@@ -7,7 +7,6 @@ import {
   Radio, 
   ArrowDownToLine, 
   ArrowUpFromLine, 
-  Layers, 
   Globe, 
   Cpu, 
   AlertTriangle, 
@@ -20,7 +19,6 @@ import {
   Landmark,
   Bell,
   RefreshCw,
-  Lock,
   Clock,
   Activity
 } from 'lucide-react';
@@ -107,24 +105,6 @@ export const Header: React.FC = () => {
             >
               https://app.nexifyprotrade.io
             </button>
-            {currentUser?.role === 'admin' && (
-              <button
-                id="domain-admin-btn"
-                onClick={() => setCurrentDomain('admin')}
-                className={`rounded-lg px-2.5 py-1 font-mono text-xs transition-all flex items-center space-x-1.5 ${
-                  currentDomain === 'admin'
-                    ? 'bg-amber-600/30 text-amber-300 font-semibold border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                }`}
-                title="Authorized Institutional Admin Portal"
-              >
-                <Lock className="h-3 w-3 text-emerald-400" />
-                <span>https://admin.nexifyprotrade.io</span>
-                <span className="rounded bg-emerald-950/80 border border-emerald-700/60 text-emerald-300 px-1.5 py-0.5 text-xs font-bold font-mono">
-                  ROOT
-                </span>
-              </button>
-            )}
           </div>
         </div>
 
@@ -458,24 +438,6 @@ export const Header: React.FC = () => {
                       </span>
                       {copied && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
                     </button>
-
-                    {currentUser?.role === 'admin' && (
-                      <button
-                        onClick={() => {
-                          setIsWalletDropdownOpen(false);
-                          setCurrentDomain('admin');
-                        }}
-                        className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs text-amber-300 hover:bg-amber-950/40 transition-colors"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <Layers className="h-4 w-4 text-amber-400" />
-                          <span>Admin Console & KYC</span>
-                        </span>
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded-md bg-amber-950 border border-amber-800 text-amber-300 font-bold">
-                          ROOT
-                        </span>
-                      </button>
-                    )}
 
                     <button
                       onClick={() => {

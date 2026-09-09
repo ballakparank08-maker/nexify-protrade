@@ -186,6 +186,7 @@ interface TradingContextType {
   currentUser: UserSession | null;
   isAuthenticated: boolean;
   loginWithCredentials: (email: string, password?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
+  loginAdminWithCredentials: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   registerUser: (details: { name: string; email: string; password: string }) => Promise<{ success: boolean; error?: string }>;
   loginWithWallet: (walletName?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
   loginWithDemo: (role: 'trader' | 'admin') => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
@@ -300,11 +301,6 @@ export const DEFAULT_DEMO_ADMIN: UserSession = {
   lastLoginTime: 'Sep 06, 2026, 19:45',
   ipAddress: '198.51.100.42 (Singapore SG1)'
 };
-
-// Root credentials for the Super Admin. In a real system these would be
-// server-side and hashed. Kept here so the local demo app can authenticate.
-export const SUPER_ADMIN_EMAIL = 'superadmin@nexifyprotrade.io';
-export const SUPER_ADMIN_PASSWORD = 'Nex1fy@R00t-2026';
 
 export const INITIAL_SECURITY_LOGS: SecurityAuditEntry[] = [
   {
@@ -465,17 +461,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [currentTab, setCurrentTab] = useState<AppTab>('spot');
 
   // User Authentication State
-  const [currentUser, setCurrentUser] = useState<UserSession | null>(() => {
-    const saved = localStorage.getItem('prism_user_session');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse user session', e);
-      }
-    }
-    return null;
-  });
+  const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
 
   const isAuthenticated = currentUser !== null;
 
@@ -523,10 +509,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         'ARB': 1500.0
       }
     };
-    const savedSession = localStorage.getItem('prism_user_session');
-    if (savedSession) {
-      baseWallet.isConnected = true;
-    }
     return baseWallet;
   });
 
@@ -1633,6 +1615,57 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const syncSession = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include'
+        });
+
+        if (!mounted) return;
+
+        if (!response.ok) {
+          setCurrentUser(null);
+          setWallet(prev => ({ ...prev, isConnected: false }));
+          return;
+        }
+
+        const payload = await response.json();
+        const user = payload?.user as UserSession | undefined;
+        if (!user) {
+          setCurrentUser(null);
+          setWallet(prev => ({ ...prev, isConnected: false }));
+          return;
+        }
+
+        setCurrentUser(user);
+        setWallet(prev => ({ ...prev, isConnected: true, address: user.walletAddress || prev.address }));
+      } catch {
+        if (mounted) {
+          setCurrentUser(null);
+          setWallet(prev => ({ ...prev, isConnected: false }));
+        }
+      }
+    };
+
+    syncSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const parseAuthError = async (response: Response, fallbackError: string) => {
+    try {
+      const payload = await response.json();
+      return payload?.error || fallbackError;
+    } catch {
+      return fallbackError;
+    }
+  };
+
   // Authentication & 2FA Implementation
   const loginWithDemo = async (role: 'trader' | 'admin') => {
     const baseAccount = role === 'admin' ? DEFAULT_DEMO_ADMIN : DEFAULT_DEMO_TRADER;
@@ -1646,7 +1679,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setCurrentUser(account);
-    localStorage.setItem('prism_user_session', JSON.stringify(account));
     setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
     addSecurityAuditLog(`Authorized Session Initialized: ${account.email} (${account.role})`, 'success');
     return { success: true, requires2FA: false };
@@ -1654,117 +1686,94 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const loginWithCredentials = async (email: string, password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = (password || '').trim();
-    const isAdminAttempt = cleanEmail === SUPER_ADMIN_EMAIL || cleanEmail.includes('admin');
 
-    if (isAdminAttempt) {
-      if (cleanEmail !== SUPER_ADMIN_EMAIL || cleanPassword !== SUPER_ADMIN_PASSWORD) {
-        addSecurityAuditLog(`Failed Super Admin sign-in attempt for ${cleanEmail}`, 'failed');
-        return { success: false, error: 'Invalid administrator credentials.' };
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: password || '' })
+      });
+
+      if (!response.ok) {
+        addSecurityAuditLog(`Credential sign-in failed for ${cleanEmail}`, 'failed');
+        return { success: false, error: await parseAuthError(response, 'Invalid email or password.') };
       }
 
-      const savedKey = `prism_account_${DEFAULT_DEMO_ADMIN.id}`;
-      const savedData = localStorage.getItem(savedKey);
-      const account: UserSession = savedData ? JSON.parse(savedData) : { ...DEFAULT_DEMO_ADMIN };
-
-      if (account.twoFactorEnabled) {
-        addSecurityAuditLog(`2FA Challenge issued to Super Admin ${cleanEmail}`, 'warning');
-        return { success: true, requires2FA: true, tempUser: account };
+      const payload = await response.json();
+      const user = payload?.user as UserSession | undefined;
+      if (!user) {
+        return { success: false, error: 'Unable to sign in with those credentials.' };
       }
 
-      setCurrentUser(account);
-      localStorage.setItem('prism_user_session', JSON.stringify(account));
-      setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
-      addSecurityAuditLog(`Super Admin Sign-in Success: ${account.email}`, 'success');
+      setCurrentUser(user);
+      setWallet(prev => ({ ...prev, isConnected: true, address: user.walletAddress || prev.address }));
+      addSecurityAuditLog(`Credential Sign-in Success: ${user.email}`, 'success');
       return { success: true, requires2FA: false };
+    } catch {
+      return { success: false, error: 'Authentication failed. Please try again.' };
     }
+  };
 
-    // Trader sign-in path: look up a registered account, else fall back to the
-    // demo trader profile.
-    const registryRaw = localStorage.getItem('prism_registered_emails');
-    const registry: string[] = registryRaw ? JSON.parse(registryRaw) : [];
-    let account: UserSession | null = null;
+  const loginAdminWithCredentials = async (email: string, password?: string) => {
+    const cleanEmail = email.trim().toLowerCase();
 
-    if (registry.includes(cleanEmail)) {
-      const keys = Object.keys(localStorage).filter(k => k.startsWith('prism_account_'));
-      for (const k of keys) {
-        try {
-          const parsed: UserSession = JSON.parse(localStorage.getItem(k) || 'null');
-          if (parsed && parsed.email === cleanEmail && parsed.role === 'trader') {
-            account = parsed;
-            break;
-          }
-        } catch { /* ignore */ }
+    try {
+      const response = await fetch('/api/admin/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: cleanEmail, password: password || '' })
+      });
+
+      if (!response.ok) {
+        addSecurityAuditLog(`Administrator sign-in failed for ${cleanEmail}`, 'failed');
+        return { success: false, error: await parseAuthError(response, 'Invalid email or password.') };
       }
-    }
 
-    if (!account) {
-      const savedKey = `prism_account_${DEFAULT_DEMO_TRADER.id}`;
-      const savedData = localStorage.getItem(savedKey);
-      account = savedData ? JSON.parse(savedData) : {
-        ...DEFAULT_DEMO_TRADER,
-        email: cleanEmail,
-        name: cleanEmail.split('@')[0].replace('.', ' ').toUpperCase()
-      };
-    }
+      const payload = await response.json();
+      const user = payload?.user as UserSession | undefined;
+      if (!user || user.role !== 'admin') {
+        return { success: false, error: 'Access denied.' };
+      }
 
-    if (account!.twoFactorEnabled) {
-      addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
-      return { success: true, requires2FA: true, tempUser: account! };
+      setCurrentUser(user);
+      setWallet(prev => ({ ...prev, isConnected: true, address: user.walletAddress || prev.address }));
+      addSecurityAuditLog(`Administrator sign-in success for ${user.email}`, 'success');
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Authentication failed. Please try again.' };
     }
-
-    setCurrentUser(account!);
-    localStorage.setItem('prism_user_session', JSON.stringify(account));
-    setWallet(prev => ({ ...prev, isConnected: true, address: account!.walletAddress || prev.address }));
-    addSecurityAuditLog(`Credential Sign-in Success: ${account!.email}`, 'success');
-    return { success: true, requires2FA: false };
   };
 
   const registerUser = async ({ name, email, password }: { name: string; email: string; password: string }) => {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim();
 
-    if (!cleanName || cleanName.length < 2) {
-      return { success: false, error: 'Please enter your full name (at least 2 characters).' };
-    }
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailPattern.test(cleanEmail)) {
-      return { success: false, error: 'Please enter a valid email address.' };
-    }
-    if (!password || password.length < 8) {
-      return { success: false, error: 'Password must be at least 8 characters long.' };
-    }
-    if (cleanEmail.includes('admin')) {
-      return { success: false, error: 'This email address is not available for self-registration.' };
-    }
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email: cleanEmail, password })
+      });
 
-    const existingRegistryRaw = localStorage.getItem('prism_registered_emails');
-    const existingRegistry: string[] = existingRegistryRaw ? JSON.parse(existingRegistryRaw) : [];
-    if (existingRegistry.includes(cleanEmail)) {
-      return { success: false, error: 'An account with that email already exists. Please sign in instead.' };
+      if (!response.ok) {
+        return { success: false, error: await parseAuthError(response, 'Unable to create your account.') };
+      }
+
+      const payload = await response.json();
+      const user = payload?.user as UserSession | undefined;
+      if (!user) {
+        return { success: false, error: 'Unable to create your account.' };
+      }
+
+      setCurrentUser(user);
+      setWallet(prev => ({ ...prev, isConnected: true, address: user.walletAddress || prev.address }));
+      addSecurityAuditLog(`New member account created: ${cleanEmail}`, 'success');
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Sign up failed. Please try again.' };
     }
-
-    const newId = `usr-trader-${Date.now().toString(36)}`;
-    const account: UserSession = {
-      ...DEFAULT_DEMO_TRADER,
-      id: newId,
-      email: cleanEmail,
-      name: cleanName,
-      role: 'trader',
-      loginMethod: 'credentials',
-      twoFactorEnabled: false,
-      backupCodes: [],
-      lastLoginTime: 'Just now'
-    };
-
-    localStorage.setItem(`prism_account_${newId}`, JSON.stringify(account));
-    localStorage.setItem('prism_registered_emails', JSON.stringify([...existingRegistry, cleanEmail]));
-
-    setCurrentUser(account);
-    localStorage.setItem('prism_user_session', JSON.stringify(account));
-    setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
-    addSecurityAuditLog(`New member account created: ${cleanEmail}`, 'success');
-    return { success: true };
   };
 
   const loginWithWallet = async (walletName = 'MetaMask') => {
@@ -1795,7 +1804,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     setCurrentUser(account);
-    localStorage.setItem('prism_user_session', JSON.stringify(account));
     setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
     addSecurityAuditLog(`Web3 Signature Login Verified (${walletName})`, 'success');
     return { success: true, requires2FA: false };
@@ -1826,7 +1834,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     updatedUser.lastLoginTime = 'Just now';
 
     setCurrentUser(updatedUser);
-    localStorage.setItem('prism_user_session', JSON.stringify(updatedUser));
     localStorage.setItem(`prism_account_${updatedUser.id}`, JSON.stringify(updatedUser));
     setWallet(prev => ({ ...prev, isConnected: true, address: updatedUser.walletAddress || prev.address }));
     addSecurityAuditLog(`Google Authenticator 2FA Verified for ${updatedUser.email}`, 'success');
@@ -1838,8 +1845,11 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       addSecurityAuditLog(`Trader Session Terminated (${currentUser.email})`, 'success');
     }
     setCurrentUser(null);
-    localStorage.removeItem('prism_user_session');
     setWallet(prev => ({ ...prev, isConnected: false }));
+    fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(() => undefined);
   };
 
   const enable2FA = (secret: string, backupCodes: string[]) => {
@@ -1852,7 +1862,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       backupCodes
     };
     setCurrentUser(updated);
-    localStorage.setItem('prism_user_session', JSON.stringify(updated));
     localStorage.setItem(`prism_account_${updated.id}`, JSON.stringify(updated));
     addSecurityAuditLog(`Google Authenticator 2FA Activated & Enforced`, 'success');
   };
@@ -1882,7 +1891,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       backupCodes: []
     };
     setCurrentUser(updated);
-    localStorage.setItem('prism_user_session', JSON.stringify(updated));
     localStorage.setItem(`prism_account_${updated.id}`, JSON.stringify(updated));
     addSecurityAuditLog(`Google Authenticator 2FA Deactivated`, 'warning');
     return { success: true };
@@ -1892,7 +1900,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (!currentUser) return;
     const updated: UserSession = { ...currentUser, ...settings };
     setCurrentUser(updated);
-    localStorage.setItem('prism_user_session', JSON.stringify(updated));
     localStorage.setItem(`prism_account_${updated.id}`, JSON.stringify(updated));
     addSecurityAuditLog(`Security preferences updated`, 'success');
   };
@@ -2723,6 +2730,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentUser,
         isAuthenticated,
         loginWithCredentials,
+        loginAdminWithCredentials,
         registerUser,
         loginWithWallet,
         loginWithDemo,
