@@ -186,6 +186,7 @@ interface TradingContextType {
   currentUser: UserSession | null;
   isAuthenticated: boolean;
   loginWithCredentials: (email: string, password?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
+  signupWithCredentials: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   loginWithWallet: (walletName?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
   loginWithDemo: (role: 'trader' | 'admin') => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
   verifyLogin2FA: (code: string, tempUser: UserSession) => Promise<{ success: boolean; error?: string }>;
@@ -1650,7 +1651,30 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const loginWithCredentials = async (email: string, _password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
+    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, UserSession>;
+    const registeredAccount = registeredAccounts[cleanEmail];
+
+    if (registeredAccount) {
+      const account = registeredAccount;
+
+      if (account.twoFactorEnabled) {
+        addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
+        return { success: true, requires2FA: true, tempUser: account };
+      }
+
+      setCurrentUser(account);
+      localStorage.setItem('prism_user_session', JSON.stringify(account));
+      setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
+      addSecurityAuditLog(`Credential Sign-in Success: ${account.email}`, 'success');
+      return { success: true, requires2FA: false };
+    }
+
     const isAdmin = cleanEmail.includes('admin');
+    const isDemoTrader = cleanEmail === DEFAULT_DEMO_TRADER.email.toLowerCase();
+    if (!isAdmin && !isDemoTrader) {
+      addSecurityAuditLog(`Credential Sign-in Failed: ${cleanEmail}`, 'failed');
+      return { success: false, error: 'Account not found. Please sign up first.' };
+    }
     const baseAccount = isAdmin ? DEFAULT_DEMO_ADMIN : DEFAULT_DEMO_TRADER;
     const savedKey = `prism_account_${baseAccount.id}`;
     const savedData = localStorage.getItem(savedKey);
@@ -1670,6 +1694,61 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
     addSecurityAuditLog(`Credential Sign-in Success: ${account.email}`, 'success');
     return { success: true, requires2FA: false };
+  };
+
+  const signupWithCredentials = async (name: string, email: string, password: string) => {
+    const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanName) {
+      return { success: false, error: 'Full name is required.' };
+    }
+    if (!cleanEmail) {
+      return { success: false, error: 'Email is required.' };
+    }
+    if (cleanPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters.' };
+    }
+
+    const registeredAccounts = JSON.parse(localStorage.getItem('prism_registered_accounts') || '{}') as Record<string, UserSession>;
+    const isReservedDemoAccount =
+      cleanEmail === DEFAULT_DEMO_TRADER.email.toLowerCase() ||
+      cleanEmail === DEFAULT_DEMO_ADMIN.email.toLowerCase() ||
+      cleanEmail.includes('admin');
+
+    if (registeredAccounts[cleanEmail] || isReservedDemoAccount) {
+      return { success: false, error: 'An account with this email already exists.' };
+    }
+
+    const newAccount: UserSession = {
+      id: `usr-${Date.now()}`,
+      email: cleanEmail,
+      name: cleanName,
+      role: 'trader',
+      institution: 'Nexify ProTrade Member',
+      loginMethod: 'credentials',
+      twoFactorEnabled: false,
+      backupCodes: [],
+      sessionTimeoutMinutes: 30,
+      antiPhishingCode: 'NEXIFY-SECURE',
+      whitelistWithdrawals: true,
+      lastLoginTime: new Date().toLocaleString(),
+      ipAddress: '198.51.100.42 (Singapore SG1)'
+    };
+
+    const nextRegisteredAccounts = {
+      ...registeredAccounts,
+      [cleanEmail]: newAccount
+    };
+
+    localStorage.setItem('prism_registered_accounts', JSON.stringify(nextRegisteredAccounts));
+    localStorage.setItem(`prism_account_${newAccount.id}`, JSON.stringify(newAccount));
+    setCurrentUser(newAccount);
+    localStorage.setItem('prism_user_session', JSON.stringify(newAccount));
+    setWallet(prev => ({ ...prev, isConnected: true }));
+    addSecurityAuditLog(`New member account created: ${newAccount.email}`, 'success');
+    return { success: true };
   };
 
   const loginWithWallet = async (walletName = 'MetaMask') => {
@@ -2628,6 +2707,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentUser,
         isAuthenticated,
         loginWithCredentials,
+        signupWithCredentials,
         loginWithWallet,
         loginWithDemo,
         verifyLogin2FA,

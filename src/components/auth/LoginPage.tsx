@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ArrowLeft, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Lock, Mail, ShieldAlert, User } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
 
 interface LoginPageProps {
@@ -12,20 +12,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
     isAuthenticated,
     logout,
     loginWithCredentials,
+    signupWithCredentials,
     setCurrentDomain,
     addSecurityAuditLog
   } = useTrading();
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [fullName, setFullName] = useState('');
   const [emailOrMemberId, setEmailOrMemberId] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleCredentialsSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage(null);
+    setSuccessMessage(null);
+
+    if (isSignUpMode && password !== confirmPassword) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
+      if (isSignUpMode) {
+        const signUpResult = await signupWithCredentials(fullName, emailOrMemberId, password);
+        if (!signUpResult.success) {
+          setErrorMessage(signUpResult.error || 'Unable to create your account.');
+        } else {
+          setSuccessMessage('Account created successfully. You are now signed in.');
+        }
+        return;
+      }
+
       const result = await loginWithCredentials(emailOrMemberId, password);
       if (!result.success) {
         setErrorMessage(result.error || 'Unable to sign in with those credentials.');
@@ -65,12 +87,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
         <div className="mb-6 text-center">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-950/40 px-3 py-1 font-mono text-xs text-purple-300">
             <Lock className="h-3.5 w-3.5" />
-            <span>{targetDomain === 'admin' ? 'Administrator sign in' : 'Secure member sign in'}</span>
+            <span>{targetDomain === 'admin' ? 'Administrator sign in' : isSignUpMode ? 'Create member account' : 'Secure member sign in'}</span>
           </div>
-          <h2 className="font-mono text-2xl font-bold text-white">{targetDomain === 'admin' ? 'Nexify Admin Access' : 'Nexify Workstation Access'}</h2>
+          <h2 className="font-mono text-2xl font-bold text-white">{targetDomain === 'admin' ? 'Nexify Admin Access' : isSignUpMode ? 'Create Nexify Account' : 'Nexify Workstation Access'}</h2>
         </div>
 
         <form onSubmit={handleCredentialsSubmit} className="rounded-2xl border border-slate-800/90 bg-[#090e1e]/90 p-6 shadow-2xl sm:p-8">
+          {successMessage && (
+            <div className="mb-5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-3 text-xs text-emerald-300">
+              {successMessage}
+            </div>
+          )}
           {errorMessage && (
             <div className="mb-5 flex gap-2.5 rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -78,11 +105,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
             </div>
           )}
 
+          {targetDomain === 'app' && isSignUpMode && (
+            <label className="mb-4 block">
+              <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">Full name</span>
+              <span className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5 focus-within:border-purple-500/60">
+                <User className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
+                <input type="text" required value={fullName} onChange={event => setFullName(event.target.value)} placeholder="Your full name" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
+              </span>
+            </label>
+          )}
+
           <label className="mb-4 block">
-            <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">Member ID or email</span>
+            <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">{isSignUpMode ? 'Email' : 'Member ID or email'}</span>
             <span className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5 focus-within:border-purple-500/60">
               <Mail className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
-              <input type="text" required autoComplete="username" value={emailOrMemberId} onChange={event => setEmailOrMemberId(event.target.value)} placeholder="name@example.com" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
+              <input type={isSignUpMode ? 'email' : 'text'} required autoComplete="username" value={emailOrMemberId} onChange={event => setEmailOrMemberId(event.target.value)} placeholder="name@example.com" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
             </span>
           </label>
 
@@ -90,13 +127,37 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
             <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">Password</span>
             <span className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5 focus-within:border-purple-500/60">
               <Lock className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
-              <input type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
+              <input type="password" required autoComplete={isSignUpMode ? 'new-password' : 'current-password'} value={password} onChange={event => setPassword(event.target.value)} placeholder={isSignUpMode ? 'Create a password' : 'Enter your password'} className="w-full bg-transparent font-mono text-xs text-white outline-none" />
             </span>
           </label>
 
+          {targetDomain === 'app' && isSignUpMode && (
+            <label className="mt-4 block">
+              <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">Confirm password</span>
+              <span className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5 focus-within:border-purple-500/60">
+                <Lock className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
+                <input type="password" required autoComplete="new-password" value={confirmPassword} onChange={event => setConfirmPassword(event.target.value)} placeholder="Re-enter your password" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
+              </span>
+            </label>
+          )}
+
           <button type="submit" disabled={isLoading} className="mt-6 w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 py-3 font-mono text-xs font-bold text-white shadow-xl transition-all hover:brightness-110 disabled:opacity-50">
-            {isLoading ? 'SIGNING IN...' : 'SIGN IN'}
+            {isLoading ? (isSignUpMode ? 'CREATING ACCOUNT...' : 'SIGNING IN...') : (isSignUpMode ? 'CREATE ACCOUNT' : 'SIGN IN')}
           </button>
+
+          {targetDomain === 'app' && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignUpMode(prev => !prev);
+                setErrorMessage(null);
+                setSuccessMessage(null);
+              }}
+              className="mt-4 inline-flex w-full items-center justify-center font-mono text-xs text-slate-300 hover:text-purple-300"
+            >
+              {isSignUpMode ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            </button>
+          )}
 
           <button type="button" onClick={() => setCurrentDomain('landing')} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 font-mono text-xs text-slate-400 hover:text-purple-300">
             <ArrowLeft className="h-3.5 w-3.5" />
