@@ -29,8 +29,8 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Layer 1',
     sparkline: [86800, 87200, 86900, 87600, 88100, 87900, 88800, 89450],
     iconBg: '#F7931A',
-    balance: 0.8542,
-    lockedBalance: 0.1500
+    balance: 0,
+    lockedBalance: 0
   },
   {
     id: 'ethereum',
@@ -46,8 +46,8 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Layer 1',
     sparkline: [3380, 3410, 3390, 3350, 3320, 3310, 3360, 3342],
     iconBg: '#627EEA',
-    balance: 6.2500,
-    lockedBalance: 2.0000
+    balance: 0,
+    lockedBalance: 0
   },
   {
     id: 'solana',
@@ -63,8 +63,8 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Layer 1',
     sparkline: [175, 178, 181, 179, 183, 185, 187, 188.6],
     iconBg: '#14F195',
-    balance: 45.80,
-    lockedBalance: 20.00
+    balance: 0,
+    lockedBalance: 0
   },
   {
     id: 'prism-token',
@@ -80,8 +80,8 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'DeFi',
     sparkline: [10.9, 11.2, 11.4, 11.8, 12.0, 12.1, 12.3, 12.45],
     iconBg: '#A855F7',
-    balance: 2450.00,
-    lockedBalance: 1000.00
+    balance: 0,
+    lockedBalance: 0
   },
   {
     id: 'chainlink',
@@ -97,7 +97,7 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Infrastructure',
     sparkline: [17.3, 17.5, 17.9, 17.8, 18.0, 18.1, 18.3, 18.25],
     iconBg: '#375BD2',
-    balance: 180.00,
+    balance: 0,
     lockedBalance: 0
   },
   {
@@ -114,8 +114,8 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Layer 1',
     sparkline: [35.4, 35.8, 36.1, 35.9, 36.4, 36.5, 36.7, 36.8],
     iconBg: '#E84142',
-    balance: 85.00,
-    lockedBalance: 40.00
+    balance: 0,
+    lockedBalance: 0
   },
   {
     id: 'near-protocol',
@@ -131,7 +131,7 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'AI & Data',
     sparkline: [6.3, 6.45, 6.6, 6.55, 6.75, 6.85, 6.9, 6.95],
     iconBg: '#00EC97',
-    balance: 320.00,
+    balance: 0,
     lockedBalance: 0
   },
   {
@@ -148,7 +148,7 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'DeFi',
     sparkline: [10.2, 10.1, 9.9, 9.95, 9.7, 9.65, 9.8, 9.85],
     iconBg: '#FF007A',
-    balance: 110.00,
+    balance: 0,
     lockedBalance: 0
   },
   {
@@ -165,7 +165,7 @@ export const INITIAL_CRYPTO_ASSETS: CryptoAsset[] = [
     category: 'Layer 2',
     sparkline: [0.91, 0.92, 0.93, 0.92, 0.94, 0.93, 0.94, 0.94],
     iconBg: '#28A0F0',
-    balance: 1500.00,
+    balance: 0,
     lockedBalance: 0
   }
 ];
@@ -788,4 +788,3 @@ export const INITIAL_ORDER_HISTORY: CompletedSpotTrade[] = [
     txHash: '0x992cb410...ff42'
   }
 ];
-

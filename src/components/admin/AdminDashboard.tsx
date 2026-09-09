@@ -17,7 +17,9 @@ import {
   ShieldAlert,
   LogOut,
   ArrowLeft,
-  KeyRound
+  KeyRound,
+  UserPlus,
+  Trash2
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
 import { ClientAccount } from '../../types';
@@ -31,7 +33,9 @@ export const AdminDashboard: React.FC = () => {
     engineLatencyMs,
     transactions,
     clientAccounts,
+    addClientAccount,
     updateClientAccount,
+    removeClientAccount,
     futurePositions,
     settleFuturePositionByAdmin,
     setCurrentDomain,
@@ -73,6 +77,28 @@ export const AdminDashboard: React.FC = () => {
       setSelectedClientId(displayedClient.id);
       setClientDraft(null);
       addSecurityAuditLog(`Client account ${displayedClient.id} updated by ${currentUser?.email}`, 'success');
+    }
+  };
+
+  const addClient = async () => {
+    const result = await addClientAccount();
+    setAdminActionMsg(result.message);
+    if (result.success && result.client) {
+      setSelectedClientId(result.client.id);
+      setClientDraft(null);
+      addSecurityAuditLog(`Client account ${result.client.id} created by ${currentUser?.email}`, 'success');
+    }
+  };
+
+  const removeSelectedClient = async () => {
+    if (!selectedClient) return;
+    const result = await removeClientAccount(selectedClient.id);
+    setAdminActionMsg(result.message);
+    if (result.success) {
+      const nextClient = clientAccounts.find(client => client.id !== selectedClient.id);
+      setSelectedClientId(nextClient?.id || '');
+      setClientDraft(null);
+      addSecurityAuditLog(`Client account ${selectedClient.id} removed by ${currentUser?.email}`, 'warning');
     }
   };
 
@@ -265,14 +291,14 @@ export const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono text-xs">
         <div className="rounded-2xl border border-white/10 bg-[#090e1d]/90 p-5 backdrop-blur-xl shadow-xl">
           <div className="text-slate-300 text-xs uppercase font-medium">Registered Pro Traders</div>
-          <div className="text-white font-bold text-xl mt-1.5">14,820 Users</div>
-          <div className="text-emerald-400 text-xs mt-1 font-semibold">+48 today</div>
+          <div className="text-white font-bold text-xl mt-1.5">{clientAccounts.length} Users</div>
+          <div className="text-slate-400 text-xs mt-1 font-semibold">Start from an empty member list</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#090e1d]/90 p-5 backdrop-blur-xl shadow-xl">
           <div className="text-slate-300 text-xs uppercase font-medium">Cold Reserve Assets</div>
-          <div className="text-purple-300 font-bold text-xl mt-1.5">$1.454 Billion</div>
-          <div className="text-emerald-400 text-xs mt-1 font-semibold">102.4% Reserve Ratio</div>
+          <div className="text-purple-300 font-bold text-xl mt-1.5">$0.00</div>
+          <div className="text-slate-400 text-xs mt-1 font-semibold">Initial reserve balance</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-[#090e1d]/90 p-5 backdrop-blur-xl shadow-xl">
@@ -340,9 +366,15 @@ export const AdminDashboard: React.FC = () => {
               <p className="mt-0.5 text-xs text-slate-400">Manage identity, compliance, wallet address, account status, and balances.</p>
             </div>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
-            <input value={clientSearch} onChange={event => setClientSearch(event.target.value)} placeholder="Search name, client ID, email..." className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 py-2 pl-9 pr-3 font-mono text-xs text-white outline-none focus:border-purple-500 lg:w-64" />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button onClick={addClient} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-3 py-2 font-mono text-xs font-bold text-white transition-colors hover:bg-purple-500">
+              <UserPlus className="h-3.5 w-3.5" />
+              Add member
+            </button>
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
+              <input value={clientSearch} onChange={event => setClientSearch(event.target.value)} placeholder="Search name, client ID, email..." className="w-full rounded-xl border border-slate-700/80 bg-slate-900/90 py-2 pl-9 pr-3 font-mono text-xs text-white outline-none focus:border-purple-500 lg:w-64" />
+            </div>
           </div>
         </div>
 
@@ -364,10 +396,16 @@ export const AdminDashboard: React.FC = () => {
             <div className="rounded-xl border border-slate-800 bg-[#060a14] p-4">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <span className="font-mono text-xs font-bold text-purple-300">Editing {displayedClient.fullName}</span>
-                <label className="flex items-center gap-2 font-mono text-xs text-slate-300">
-                  <input type="checkbox" checked={displayedClient.accountLocked} onChange={event => updateClientDraft({ accountLocked: event.target.checked })} className="accent-rose-500" />
-                  Lock account
-                </label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 font-mono text-xs text-slate-300">
+                    <input type="checkbox" checked={displayedClient.accountLocked} onChange={event => updateClientDraft({ accountLocked: event.target.checked })} className="accent-rose-500" />
+                    Lock account
+                  </label>
+                  <button onClick={removeSelectedClient} className="inline-flex items-center gap-1 rounded-lg border border-rose-800/70 bg-rose-950/40 px-2.5 py-1.5 font-mono text-xs font-bold text-rose-300 transition-colors hover:bg-rose-900/60">
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {([

@@ -35,7 +35,6 @@ import {
   INITIAL_TRANSACTIONS, 
   STAKING_POOLS, 
   INITIAL_LOANS, 
-  INITIAL_KYC_USERS,
   MINING_PLANS,
   INITIAL_MINING_CONTRACTS,
   INITIAL_ORDER_HISTORY,
@@ -127,7 +126,9 @@ interface TradingContextType {
   kycUsers: KYCUserRecord[];
   updateKycStatus: (id: string, status: KYCUserRecord['kycStatus']) => Promise<{ success: boolean; message: string }>;
   clientAccounts: ClientAccount[];
+  addClientAccount: () => Promise<{ success: boolean; message: string; client?: ClientAccount }>;
   updateClientAccount: (id: string, updates: ClientAccount) => Promise<{ success: boolean; message: string }>;
+  removeClientAccount: (id: string) => Promise<{ success: boolean; message: string }>;
   circuitBreakerActive: boolean;
   toggleCircuitBreaker: () => void;
   engineLatencyMs: number;
@@ -633,15 +634,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [autoCompound, setAutoCompound] = useState<boolean>(true);
 
   // Admin states
-  const [kycUsers, setKycUsers] = useState<KYCUserRecord[]>(INITIAL_KYC_USERS);
-  const [clientAccounts, setClientAccounts] = useState<ClientAccount[]>(() => {
-    return INITIAL_KYC_USERS.map((user, index) => ({
-      ...user,
-      usdtBalance: [28450, 12500, 8750][index] || 0,
-      assets: index === 0 ? { BTC: 0.8542, ETH: 6.25, SOL: 45.8 } : {},
-      accountLocked: false
-    }));
-  });
+  const [kycUsers, setKycUsers] = useState<KYCUserRecord[]>([]);
+  const [clientAccounts, setClientAccounts] = useState<ClientAccount[]>([]);
   const [circuitBreakerActive, setCircuitBreakerActive] = useState<boolean>(false);
   const [engineLatencyMs, setEngineLatencyMs] = useState<number>(4.2);
 
@@ -889,8 +883,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const accountsRef = collection(firestore, 'clientAccounts');
     return onSnapshot(accountsRef, snapshot => {
       if (snapshot.empty) {
-        void Promise.all(clientAccounts.map(account => setDoc(doc(accountsRef, account.id), account)))
-          .catch(error => console.error('Unable to seed Firebase client accounts', error));
+        setClientAccounts([]);
+        setKycUsers([]);
         return;
       }
       const accounts = snapshot.docs.map(account => account.data() as ClientAccount);
@@ -2427,6 +2421,57 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, message: `Updated client account for ${updates.fullName}.` };
   };
 
+  const addClientAccount = async () => {
+    if (currentUser?.role !== 'admin') {
+      return { success: false, message: 'Administrator authorization is required to add client accounts.' };
+    }
+    if (!firestore) {
+      return { success: false, message: 'Firebase database is not configured.' };
+    }
+
+    const client: ClientAccount = {
+      id: `client-${Date.now()}`,
+      fullName: 'New member',
+      email: '',
+      walletAddress: '',
+      country: '',
+      tier: 'Tier 1 (Basic)',
+      kycStatus: 'pending_review',
+      submittedDate: new Date().toISOString().slice(0, 10),
+      tradingVolumeUsd: 0,
+      usdtBalance: 0,
+      assets: {},
+      accountLocked: false
+    };
+
+    try {
+      await setDoc(doc(firestore, 'clientAccounts', client.id), client);
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unable to add the client account.' };
+    }
+
+    return { success: true, message: 'New client account created with zero assets.', client };
+  };
+
+  const removeClientAccount = async (id: string) => {
+    if (currentUser?.role !== 'admin') {
+      return { success: false, message: 'Administrator authorization is required to remove client accounts.' };
+    }
+    if (!firestore) {
+      return { success: false, message: 'Firebase database is not configured.' };
+    }
+
+    try {
+      await deleteDoc(doc(firestore, 'clientAccounts', id));
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : 'Unable to remove the client account.' };
+    }
+
+    setClientAccounts(prev => prev.filter(account => account.id !== id));
+    setKycUsers(prev => prev.filter(user => user.id !== id));
+    return { success: true, message: 'Client account record removed.' };
+  };
+
   const toggleCircuitBreaker = () => {
     setCircuitBreakerActive(prev => !prev);
   };
@@ -2589,7 +2634,9 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         kycUsers,
         updateKycStatus,
         clientAccounts,
+        addClientAccount,
         updateClientAccount,
+        removeClientAccount,
         circuitBreakerActive,
         toggleCircuitBreaker,
         engineLatencyMs,
