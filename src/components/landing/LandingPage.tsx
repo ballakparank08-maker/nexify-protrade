@@ -13,15 +13,13 @@ import {
   ChevronRight, 
   CheckCircle2, 
   Globe, 
-  Activity,
-  Server
+  Activity
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
 import { NexifyLogo } from '../common/NexifyLogo';
 
 export const LandingPage: React.FC = () => {
-  const { setCurrentDomain, setCurrentTab, cryptoAssets, setIsAuthModalOpen, currentUser } = useTrading();
-  const isAdmin = currentUser?.role === 'admin';
+  const { setCurrentDomain, setCurrentTab, cryptoAssets } = useTrading();
 
   return (
     <div className="min-h-screen bg-[#060913] text-slate-100 bg-tech-grid">
@@ -83,16 +81,6 @@ export const LandingPage: React.FC = () => {
                 <span>View Asset Portfolio</span>
               </button>
 
-              {isAdmin && (
-                <button
-                  id="landing-admin-portal"
-                  onClick={() => setCurrentDomain('admin')}
-                  className="flex items-center space-x-2 rounded-xl border border-amber-900/50 bg-amber-950/20 px-5 py-3.5 text-sm font-mono text-amber-300 transition-all hover:bg-amber-900/30"
-                >
-                  <Server className="h-4 w-4 text-amber-400" />
-                  <span>Admin Console</span>
-                </button>
-              )}
             </div>
 
             {/* Quick trust metrics row */}
@@ -363,9 +351,6 @@ export const LandingPage: React.FC = () => {
           </div>
           <div className="flex space-x-6">
             <button onClick={() => setCurrentDomain('app')} className="hover:text-slate-300">Trading Portal</button>
-            {isAdmin && (
-              <button onClick={() => setCurrentDomain('admin')} className="hover:text-slate-300">Admin Gateway</button>
-            )}
             <a href="#terms" className="hover:text-slate-300">Terms of Service</a>
             <a href="#privacy" className="hover:text-slate-300">Security Policy</a>
           </div>

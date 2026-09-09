@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, ArrowLeft, Lock, Mail, ShieldAlert, User } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
+import { getCanonicalPathForIntent } from '../../utils/navigation';
 
 interface LoginPageProps {
   targetDomain: 'app' | 'admin';
@@ -25,6 +26,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
   const [fullName, setFullName] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleReturnToLanding = () => {
+    if (typeof window !== 'undefined') {
+      history.replaceState(null, '', getCanonicalPathForIntent('landing'));
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+    setCurrentDomain('landing');
+  };
 
   // Sign up is only available for the trading workstation, never admin.
   const canSignUp = targetDomain === 'app';
@@ -180,7 +189,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
             </p>
           )}
 
-          <button type="button" onClick={() => setCurrentDomain('landing')} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 font-mono text-xs text-slate-400 hover:text-purple-300">
+          <button type="button" onClick={handleReturnToLanding} className="mt-4 inline-flex w-full items-center justify-center gap-1.5 font-mono text-xs text-slate-400 hover:text-purple-300">
             <ArrowLeft className="h-3.5 w-3.5" />
             Return to landing page
           </button>
