@@ -22,6 +22,28 @@ import { ShieldCheck, Cpu, Layers, ExternalLink } from 'lucide-react';
 
 const MainContent: React.FC = () => {
   const { currentDomain, currentTab, setCurrentDomain, setCurrentTab, isAuthenticated, currentUser } = useTrading();
+  const [adminGatewayOpen, setAdminGatewayOpen] = React.useState(
+    typeof window !== 'undefined' && window.location.hash.replace('#', '').toLowerCase() === 'admin-login'
+  );
+
+  React.useEffect(() => {
+    const syncFromHash = () => {
+      const hash = window.location.hash.replace('#', '').toLowerCase();
+      setAdminGatewayOpen(hash === 'admin-login');
+    };
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  React.useEffect(() => {
+    if (adminGatewayOpen && isAuthenticated && currentUser?.role === 'admin') {
+      setCurrentDomain('admin');
+      if (window.location.hash) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+      setAdminGatewayOpen(false);
+    }
+  }, [adminGatewayOpen, isAuthenticated, currentUser, setCurrentDomain]);
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col selection:bg-purple-500 selection:text-white bg-tech-grid">
@@ -29,15 +51,19 @@ const MainContent: React.FC = () => {
 
       {/* Main Domain Router View */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {currentDomain === 'landing' && <LandingPage />}
+        {adminGatewayOpen && !(isAuthenticated && currentUser?.role === 'admin') ? (
+          <LoginPage targetDomain="admin" />
+        ) : (
+          <>
+            {currentDomain === 'landing' && <LandingPage />}
 
-        {currentDomain === 'admin' && (
-          !isAuthenticated || currentUser?.role !== 'admin' ? (
-            <LoginPage targetDomain="admin" />
-          ) : (
-            <AdminDashboard />
-          )
-        )}
+            {currentDomain === 'admin' && (
+              !isAuthenticated || currentUser?.role !== 'admin' ? (
+                <LandingPage />
+              ) : (
+                <AdminDashboard />
+              )
+            )}
 
         {currentDomain === 'app' && (
           !isAuthenticated ? (
@@ -118,6 +144,8 @@ const MainContent: React.FC = () => {
               {currentTab === 'convert' && <ConvertTerminal />}
             </div>
           )
+        )}
+          </>
         )}
       </main>
 

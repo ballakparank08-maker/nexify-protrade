@@ -186,6 +186,7 @@ interface TradingContextType {
   currentUser: UserSession | null;
   isAuthenticated: boolean;
   loginWithCredentials: (email: string, password?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
+  registerUser: (details: { name: string; email: string; password: string }) => Promise<{ success: boolean; error?: string }>;
   loginWithWallet: (walletName?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
   loginWithDemo: (role: 'trader' | 'admin') => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession }>;
   verifyLogin2FA: (code: string, tempUser: UserSession) => Promise<{ success: boolean; error?: string }>;
@@ -285,15 +286,13 @@ export const DEFAULT_DEMO_TRADER: UserSession = {
 
 export const DEFAULT_DEMO_ADMIN: UserSession = {
   id: 'usr-admin-root',
-  email: 'admin@nexifyprotrade.io',
+  email: 'superadmin@nexifyprotrade.io',
   name: 'Elena Rostova',
   role: 'admin',
   institution: 'Nexify Pro Core Protocol SecOps',
   walletAddress: '0xA4c21...8F99',
   loginMethod: 'credentials',
-  twoFactorEnabled: true,
-  twoFactorSecret: 'JBSWY3DPEHPK3PXP',
-  twoFactorVerifiedAt: 'Sep 01, 2026',
+  twoFactorEnabled: false,
   backupCodes: ['8F92-4A1B', '7C3D-9E5F', '1B2A-3C4D', '5E6F-7A8B'],
   sessionTimeoutMinutes: 15,
   antiPhishingCode: 'ROOT-SECOPS-VIP',
@@ -301,6 +300,11 @@ export const DEFAULT_DEMO_ADMIN: UserSession = {
   lastLoginTime: 'Sep 06, 2026, 19:45',
   ipAddress: '198.51.100.42 (Singapore SG1)'
 };
+
+// Root credentials for the Super Admin. In a real system these would be
+// server-side and hashed. Kept here so the local demo app can authenticate.
+export const SUPER_ADMIN_EMAIL = 'superadmin@nexifyprotrade.io';
+export const SUPER_ADMIN_PASSWORD = 'Nex1fy@R00t-2026';
 
 export const INITIAL_SECURITY_LOGS: SecurityAuditEntry[] = [
   {
@@ -457,7 +461,7 @@ const TradingContext = createContext<TradingContextType | undefined>(undefined);
 
 export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Domain state: defaults to 'app' for immediate rich trading workflow, but can toggle to 'landing' or 'admin'
-  const [currentDomain, setCurrentDomain] = useState<AppDomain>('app');
+  const [currentDomain, setCurrentDomain] = useState<AppDomain>('landing');
   const [currentTab, setCurrentTab] = useState<AppTab>('spot');
 
   // User Authentication State
@@ -1648,28 +1652,119 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, requires2FA: false };
   };
 
-  const loginWithCredentials = async (email: string, _password?: string) => {
+  const loginWithCredentials = async (email: string, password?: string) => {
     const cleanEmail = email.trim().toLowerCase();
-    const isAdmin = cleanEmail.includes('admin');
-    const baseAccount = isAdmin ? DEFAULT_DEMO_ADMIN : DEFAULT_DEMO_TRADER;
-    const savedKey = `prism_account_${baseAccount.id}`;
-    const savedData = localStorage.getItem(savedKey);
-    const account: UserSession = savedData ? JSON.parse(savedData) : {
-      ...baseAccount,
+    const cleanPassword = (password || '').trim();
+    const isAdminAttempt = cleanEmail === SUPER_ADMIN_EMAIL || cleanEmail.includes('admin');
+
+    if (isAdminAttempt) {
+      if (cleanEmail !== SUPER_ADMIN_EMAIL || cleanPassword !== SUPER_ADMIN_PASSWORD) {
+        addSecurityAuditLog(`Failed Super Admin sign-in attempt for ${cleanEmail}`, 'failed');
+        return { success: false, error: 'Invalid administrator credentials.' };
+      }
+
+      const savedKey = `prism_account_${DEFAULT_DEMO_ADMIN.id}`;
+      const savedData = localStorage.getItem(savedKey);
+      const account: UserSession = savedData ? JSON.parse(savedData) : { ...DEFAULT_DEMO_ADMIN };
+
+      if (account.twoFactorEnabled) {
+        addSecurityAuditLog(`2FA Challenge issued to Super Admin ${cleanEmail}`, 'warning');
+        return { success: true, requires2FA: true, tempUser: account };
+      }
+
+      setCurrentUser(account);
+      localStorage.setItem('prism_user_session', JSON.stringify(account));
+      setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
+      addSecurityAuditLog(`Super Admin Sign-in Success: ${account.email}`, 'success');
+      return { success: true, requires2FA: false };
+    }
+
+    // Trader sign-in path: look up a registered account, else fall back to the
+    // demo trader profile.
+    const registryRaw = localStorage.getItem('prism_registered_emails');
+    const registry: string[] = registryRaw ? JSON.parse(registryRaw) : [];
+    let account: UserSession | null = null;
+
+    if (registry.includes(cleanEmail)) {
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('prism_account_'));
+      for (const k of keys) {
+        try {
+          const parsed: UserSession = JSON.parse(localStorage.getItem(k) || 'null');
+          if (parsed && parsed.email === cleanEmail && parsed.role === 'trader') {
+            account = parsed;
+            break;
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    if (!account) {
+      const savedKey = `prism_account_${DEFAULT_DEMO_TRADER.id}`;
+      const savedData = localStorage.getItem(savedKey);
+      account = savedData ? JSON.parse(savedData) : {
+        ...DEFAULT_DEMO_TRADER,
+        email: cleanEmail,
+        name: cleanEmail.split('@')[0].replace('.', ' ').toUpperCase()
+      };
+    }
+
+    if (account!.twoFactorEnabled) {
+      addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
+      return { success: true, requires2FA: true, tempUser: account! };
+    }
+
+    setCurrentUser(account!);
+    localStorage.setItem('prism_user_session', JSON.stringify(account));
+    setWallet(prev => ({ ...prev, isConnected: true, address: account!.walletAddress || prev.address }));
+    addSecurityAuditLog(`Credential Sign-in Success: ${account!.email}`, 'success');
+    return { success: true, requires2FA: false };
+  };
+
+  const registerUser = async ({ name, email, password }: { name: string; email: string; password: string }) => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+
+    if (!cleanName || cleanName.length < 2) {
+      return { success: false, error: 'Please enter your full name (at least 2 characters).' };
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(cleanEmail)) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    if (!password || password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters long.' };
+    }
+    if (cleanEmail.includes('admin')) {
+      return { success: false, error: 'This email address is not available for self-registration.' };
+    }
+
+    const existingRegistryRaw = localStorage.getItem('prism_registered_emails');
+    const existingRegistry: string[] = existingRegistryRaw ? JSON.parse(existingRegistryRaw) : [];
+    if (existingRegistry.includes(cleanEmail)) {
+      return { success: false, error: 'An account with that email already exists. Please sign in instead.' };
+    }
+
+    const newId = `usr-trader-${Date.now().toString(36)}`;
+    const account: UserSession = {
+      ...DEFAULT_DEMO_TRADER,
+      id: newId,
       email: cleanEmail,
-      name: cleanEmail.split('@')[0].replace('.', ' ').toUpperCase()
+      name: cleanName,
+      role: 'trader',
+      loginMethod: 'credentials',
+      twoFactorEnabled: false,
+      backupCodes: [],
+      lastLoginTime: 'Just now'
     };
 
-    if (account.twoFactorEnabled) {
-      addSecurityAuditLog(`2FA Challenge issued to ${cleanEmail}`, 'warning');
-      return { success: true, requires2FA: true, tempUser: account };
-    }
+    localStorage.setItem(`prism_account_${newId}`, JSON.stringify(account));
+    localStorage.setItem('prism_registered_emails', JSON.stringify([...existingRegistry, cleanEmail]));
 
     setCurrentUser(account);
     localStorage.setItem('prism_user_session', JSON.stringify(account));
     setWallet(prev => ({ ...prev, isConnected: true, address: account.walletAddress || prev.address }));
-    addSecurityAuditLog(`Credential Sign-in Success: ${account.email}`, 'success');
-    return { success: true, requires2FA: false };
+    addSecurityAuditLog(`New member account created: ${cleanEmail}`, 'success');
+    return { success: true };
   };
 
   const loginWithWallet = async (walletName = 'MetaMask') => {
@@ -2628,6 +2723,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         currentUser,
         isAuthenticated,
         loginWithCredentials,
+        registerUser,
         loginWithWallet,
         loginWithDemo,
         verifyLogin2FA,
