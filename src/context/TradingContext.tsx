@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { collection, deleteDoc, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { 
   AppDomain, 
   AppTab, 
@@ -49,7 +47,64 @@ import {
   LiveDepthPayload,
   SUPPORTED_MARKET_ASSETS
 } from '../services/marketDataService';
-import { firebaseAuth, firestore, isFirebaseConfigured } from '../services/firebase';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
+
+interface ClientAccountRow {
+  id: string;
+  full_name: string;
+  email: string;
+  wallet_address: string;
+  country: string;
+  tier: ClientAccount['tier'];
+  kyc_status: ClientAccount['kycStatus'];
+  submitted_date: string;
+  trading_volume_usd: number;
+  usdt_balance: number;
+  assets: Record<string, number>;
+  account_locked: boolean;
+}
+
+const toClientAccount = (row: ClientAccountRow): ClientAccount => ({
+  id: row.id,
+  fullName: row.full_name,
+  email: row.email,
+  walletAddress: row.wallet_address,
+  country: row.country,
+  tier: row.tier,
+  kycStatus: row.kyc_status,
+  submittedDate: row.submitted_date,
+  tradingVolumeUsd: Number(row.trading_volume_usd),
+  usdtBalance: Number(row.usdt_balance),
+  assets: row.assets || {},
+  accountLocked: row.account_locked
+});
+
+const toClientAccountRow = (account: ClientAccount): ClientAccountRow => ({
+  id: account.id,
+  full_name: account.fullName,
+  email: account.email,
+  wallet_address: account.walletAddress,
+  country: account.country,
+  tier: account.tier,
+  kyc_status: account.kycStatus,
+  submitted_date: account.submittedDate,
+  trading_volume_usd: account.tradingVolumeUsd,
+  usdt_balance: account.usdtBalance,
+  assets: account.assets,
+  account_locked: account.accountLocked
+});
+
+const toKycUser = (account: ClientAccount): KYCUserRecord => ({
+  id: account.id,
+  fullName: account.fullName,
+  email: account.email,
+  walletAddress: account.walletAddress,
+  country: account.country,
+  tier: account.tier,
+  kycStatus: account.kycStatus,
+  submittedDate: account.submittedDate,
+  tradingVolumeUsd: account.tradingVolumeUsd
+});
 
 interface TradingContextType {
   // Navigation & Domain
@@ -469,39 +524,25 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { ...EMPTY_WALLET };
   });
 
-  const loadFirebaseProfile = useCallback(async (userId: string, email: string) => {
-    if (!firestore) return { success: false, error: 'Secure authentication is not configured.' };
+  const loadSupabaseProfile = useCallback(async (userId: string, email: string) => {
+    if (!supabase) return { success: false, error: 'Secure authentication is not configured.' };
 
-    const profileRef = doc(firestore, 'profiles', userId);
-    let profileSnapshot = await getDoc(profileRef);
-    if (!profileSnapshot.exists()) {
-      await setDoc(profileRef, {
-        email,
-        fullName: email,
-        role: 'trader',
-        createdAt: new Date().toISOString()
-      });
-      profileSnapshot = await getDoc(profileRef);
-    }
-    const profile = profileSnapshot.data();
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'trader')) {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('email, full_name, role')
+      .eq('id', userId)
+      .single();
+    if (profileError || !profile || (profile.role !== 'admin' && profile.role !== 'trader')) {
       setCurrentUser(null);
       return { success: false, error: 'Your secure profile could not be loaded. Contact an administrator.' };
     }
 
-    const walletRef = doc(firestore, 'wallets', userId);
-    let walletSnapshot = await getDoc(walletRef);
-    if (!walletSnapshot.exists()) {
-      await setDoc(walletRef, {
-        usdtBalance: 0,
-        assets: {},
-        network: EMPTY_WALLET.network,
-        createdAt: new Date().toISOString()
-      });
-      walletSnapshot = await getDoc(walletRef);
-    }
-    const storedWallet = walletSnapshot.data();
-    if (!storedWallet || typeof storedWallet.usdtBalance !== 'number' || typeof storedWallet.assets !== 'object') {
+    const { data: storedWallet, error: walletError } = await supabase
+      .from('wallets')
+      .select('usdt_balance, assets, network')
+      .eq('user_id', userId)
+      .single();
+    if (walletError || !storedWallet || typeof storedWallet.usdt_balance !== 'number' || typeof storedWallet.assets !== 'object') {
       setCurrentUser(null);
       return { success: false, error: 'Your wallet could not be loaded. Contact an administrator.' };
     }
@@ -509,7 +550,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const account: UserSession = {
       id: userId,
       email: profile.email || email,
-      name: profile.fullName || email,
+      name: profile.full_name || email,
       role: profile.role,
       loginMethod: 'credentials',
       twoFactorEnabled: false,
@@ -517,33 +558,33 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       sessionTimeoutMinutes: 30,
       whitelistWithdrawals: true,
       lastLoginTime: 'Just now',
-      ipAddress: 'Firebase authenticated session'
+      ipAddress: 'Supabase authenticated session'
     };
     setCurrentUser(account);
     setWallet({
       isConnected: true,
-      address: typeof storedWallet.address === 'string' ? storedWallet.address : null,
+      address: null,
       network: typeof storedWallet.network === 'string' ? storedWallet.network : EMPTY_WALLET.network,
-      usdtBalance: storedWallet.usdtBalance,
+      usdtBalance: storedWallet.usdt_balance,
       assets: storedWallet.assets as Record<string, number>
     });
     return { success: true, account };
   }, []);
 
   useEffect(() => {
-    if (!firebaseAuth) return;
+    if (!supabase) return;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
-      if (user?.email) {
-        void loadFirebaseProfile(user.uid, user.email);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.email) {
+        void loadSupabaseProfile(session.user.id, session.user.email);
       } else {
         setCurrentUser(null);
         setWallet({ ...EMPTY_WALLET });
       }
     });
 
-    return unsubscribe;
-  }, [loadFirebaseProfile]);
+    return () => subscription.unsubscribe();
+  }, [loadSupabaseProfile]);
 
   const [userOrders, setUserOrders] = useState<UserOrder[]>([
     {
@@ -841,19 +882,21 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Persistence
   useEffect(() => {
-    if (!firestore || currentUser?.role !== 'admin') return;
+    if (!supabase || currentUser?.role !== 'admin') return;
 
-    const accountsRef = collection(firestore, 'clientAccounts');
-    return onSnapshot(accountsRef, snapshot => {
-      if (snapshot.empty) {
-        setClientAccounts([]);
-        setKycUsers([]);
-        return;
-      }
-      const accounts = snapshot.docs.map(account => account.data() as ClientAccount);
-      setClientAccounts(accounts);
-      setKycUsers(accounts.map(({ usdtBalance: _usdtBalance, assets: _assets, accountLocked: _accountLocked, ...kyc }) => kyc));
-    });
+    void supabase
+      .from('client_accounts')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Unable to load Supabase client accounts', error);
+          return;
+        }
+        const accounts = (data as ClientAccountRow[]).map(toClientAccount);
+        setClientAccounts(accounts);
+        setKycUsers(accounts.map(toKycUser));
+      });
   }, [currentUser?.role]);
 
   useEffect(() => {
@@ -1648,22 +1691,23 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Authentication & 2FA Implementation
   const loginWithCredentials = async (email: string, password?: string) => {
-    if (!isFirebaseConfigured || !firebaseAuth) {
+    if (!isSupabaseConfigured || !supabase) {
       return { success: false, error: 'Secure authentication is not configured. Contact the site administrator.' };
     }
     if (!password) return { success: false, error: 'A password is required.' };
 
     try {
-      const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
-      if (!credential.user.email) {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (error || !data.user?.email) {
+        if (error) return { success: false, error: error.message };
         return { success: false, error: 'Unable to read the signed-in account email.' };
       }
-      const result = await loadFirebaseProfile(credential.user.uid, credential.user.email);
+      const result = await loadSupabaseProfile(data.user.id, data.user.email);
       if (!result.success) {
-        await signOut(firebaseAuth);
+        await supabase.auth.signOut();
         return { success: false, error: result.error };
       }
-      addSecurityAuditLog(`Firebase credential sign-in success: ${credential.user.email}`, 'success');
+      addSecurityAuditLog(`Supabase credential sign-in success: ${data.user.email}`, 'success');
       return { success: true, requires2FA: false };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unable to sign in with those credentials.' };
@@ -1675,14 +1719,14 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const verifyLogin2FA = async (_code: string, _tempUser: UserSession) => {
-    return { success: false, error: 'Use Firebase MFA to verify two-factor authentication.' };
+    return { success: false, error: 'Use Supabase MFA to verify two-factor authentication.' };
   };
 
   const logout = () => {
     if (currentUser) {
-      addSecurityAuditLog(`Firebase session terminated (${currentUser.email})`, 'success');
+      addSecurityAuditLog(`Supabase session terminated (${currentUser.email})`, 'success');
     }
-    if (firebaseAuth) void signOut(firebaseAuth);
+    if (supabase) void supabase.auth.signOut();
     setCurrentUser(null);
     setWallet({ ...EMPTY_WALLET });
   };
@@ -2326,14 +2370,11 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (currentUser?.role !== 'admin') {
       return { success: false, message: 'Administrator authorization is required to update KYC status.' };
     }
-    if (!firestore) {
-      return { success: false, message: 'Firebase database is not configured.' };
+    if (!supabase) {
+      return { success: false, message: 'Supabase database is not configured.' };
     }
-    try {
-      await setDoc(doc(firestore, 'clientAccounts', id), { kycStatus: status }, { merge: true });
-    } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : 'Unable to update KYC status.' };
-    }
+    const { error } = await supabase.from('client_accounts').update({ kyc_status: status }).eq('id', id);
+    if (error) return { success: false, message: error.message };
     setKycUsers(prev => prev.map(u => u.id === id ? { ...u, kycStatus: status } : u));
     setClientAccounts(prev => prev.map(account => account.id === id ? { ...account, kycStatus: status } : account));
     return { success: true, message: 'KYC status updated.' };
@@ -2353,30 +2394,18 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, message: 'That client ID is already in use.' };
     }
 
-    if (!firestore) {
-      return { success: false, message: 'Firebase database is not configured.' };
+    if (!supabase) {
+      return { success: false, message: 'Supabase database is not configured.' };
     }
 
-    try {
-      const originalRef = doc(firestore, 'clientAccounts', id);
-      const updatedRef = doc(firestore, 'clientAccounts', updates.id);
-      await setDoc(updatedRef, updates);
-      if (updates.id !== id) await deleteDoc(originalRef);
-    } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : 'Unable to update the client account.' };
-    }
+    const { error } = await supabase
+      .from('client_accounts')
+      .update(toClientAccountRow(updates))
+      .eq('id', id);
+    if (error) return { success: false, message: error.message };
 
-    setKycUsers(prev => prev.map(user => user.id === id ? {
-      id: updates.id,
-      fullName: updates.fullName,
-      email: updates.email,
-      walletAddress: updates.walletAddress,
-      country: updates.country,
-      tier: updates.tier,
-      kycStatus: updates.kycStatus,
-      submittedDate: updates.submittedDate,
-      tradingVolumeUsd: updates.tradingVolumeUsd
-    } : user));
+    setClientAccounts(prev => prev.map(account => account.id === id ? updates : account));
+    setKycUsers(prev => prev.map(user => user.id === id ? toKycUser(updates) : user));
     return { success: true, message: `Updated client account for ${updates.fullName}.` };
   };
 
@@ -2384,8 +2413,8 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (currentUser?.role !== 'admin') {
       return { success: false, message: 'Administrator authorization is required to add client accounts.' };
     }
-    if (!firestore) {
-      return { success: false, message: 'Firebase database is not configured.' };
+    if (!supabase) {
+      return { success: false, message: 'Supabase database is not configured.' };
     }
 
     const client: ClientAccount = {
@@ -2403,12 +2432,11 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       accountLocked: false
     };
 
-    try {
-      await setDoc(doc(firestore, 'clientAccounts', client.id), client);
-    } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : 'Unable to add the client account.' };
-    }
+    const { error } = await supabase.from('client_accounts').insert(toClientAccountRow(client));
+    if (error) return { success: false, message: error.message };
 
+    setClientAccounts(prev => [client, ...prev]);
+    setKycUsers(prev => [toKycUser(client), ...prev]);
     return { success: true, message: 'New client account created with zero assets.', client };
   };
 
@@ -2416,15 +2444,12 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (currentUser?.role !== 'admin') {
       return { success: false, message: 'Administrator authorization is required to remove client accounts.' };
     }
-    if (!firestore) {
-      return { success: false, message: 'Firebase database is not configured.' };
+    if (!supabase) {
+      return { success: false, message: 'Supabase database is not configured.' };
     }
 
-    try {
-      await deleteDoc(doc(firestore, 'clientAccounts', id));
-    } catch (error) {
-      return { success: false, message: error instanceof Error ? error.message : 'Unable to remove the client account.' };
-    }
+    const { error } = await supabase.from('client_accounts').delete().eq('id', id);
+    if (error) return { success: false, message: error.message };
 
     setClientAccounts(prev => prev.filter(account => account.id !== id));
     setKycUsers(prev => prev.filter(user => user.id !== id));
