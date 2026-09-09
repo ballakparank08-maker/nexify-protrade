@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  Wallet, 
   ChevronDown, 
   ExternalLink, 
   Radio, 
@@ -40,7 +39,6 @@ export const Header: React.FC = () => {
     setCurrentTab,
     cryptoAssets,
     wallet,
-    connectWallet,
     disconnectWallet,
     setIsAuthModalOpen,
     setIsDepositModalOpen,
@@ -351,16 +349,16 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Sisi Kanan: Action Buttons, 2FA & Unit Selector */}
+        {/* Sisi Kanan: Action Buttons & Unit Selector */}
         <div className="flex items-center space-x-3 shrink-0">
           <button
-            id="header-2fa-badge"
+            id="header-security-btn"
             type="button"
             onClick={() => setIsSettingsModalOpen(true)}
-            className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-xs font-semibold hover:bg-emerald-500/20 transition cursor-pointer"
-            title="Google 2FA Security Active (Click to open settings)"
+            className="px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs font-semibold transition hover:bg-emerald-500/20"
+            title="Open account security settings"
           >
-            2FA Active
+            Account Security
           </button>
 
           <button
@@ -439,12 +437,7 @@ export const Header: React.FC = () => {
                     >
                       <span className="flex items-center space-x-2">
                         <ShieldCheck className="h-4 w-4 text-purple-400" />
-                        <span>2FA & Security Settings</span>
-                      </span>
-                      <span className={`text-xs font-mono px-1.5 py-0.5 rounded-md ${
-                        currentUser?.twoFactorEnabled ? 'text-emerald-400 bg-emerald-950/60' : 'text-amber-400 bg-amber-950/60'
-                      }`}>
-                        {currentUser?.twoFactorEnabled ? 'Active' : 'Off'}
+                        <span>Account & Security Settings</span>
                       </span>
                     </button>
 
@@ -514,8 +507,8 @@ export const Header: React.FC = () => {
               }}
               className="flex items-center space-x-1.5 rounded-full bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition"
             >
-              <Wallet className="h-3.5 w-3.5" />
-              <span>Connect</span>
+              <Lock className="h-3.5 w-3.5" />
+              <span>Sign In</span>
             </button>
           )}
         </div>

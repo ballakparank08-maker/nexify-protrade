@@ -1,8 +1,12 @@
 node_modules/
 build/
 dist/
+server/dist/
 coverage/
 .DS_Store
 *.log
 .env*
 !.env.example
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal

@@ -55,8 +55,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
       const result = await loginWithCredentials(emailOrMemberId, password);
       if (!result.success) {
         setErrorMessage(result.error || 'Unable to sign in with those credentials.');
-      } else if (result.requires2FA) {
-        setErrorMessage('Two-factor authentication is required for this account. Complete it in the account security flow.');
       }
     } catch {
       setErrorMessage(mode === 'signup' ? 'Sign up failed. Please try again.' : 'Authentication failed. Please try again.');
@@ -138,10 +136,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
           )}
 
           <label className="mb-4 block">
-            <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">{isSignUp ? 'Email address' : 'Member ID or email'}</span>
+            <span className="mb-1.5 block font-mono text-xs uppercase text-slate-300">Email address</span>
             <span className="flex items-center rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2.5 focus-within:border-purple-500/60">
               <Mail className="mr-2.5 h-4 w-4 shrink-0 text-slate-400" />
-              <input type={isSignUp ? 'email' : 'text'} required autoComplete={isSignUp ? 'email' : 'username'} value={emailOrMemberId} onChange={event => setEmailOrMemberId(event.target.value)} placeholder="name@example.com" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
+              <input type="email" required autoComplete="email" value={emailOrMemberId} onChange={event => setEmailOrMemberId(event.target.value)} placeholder="name@example.com" className="w-full bg-transparent font-mono text-xs text-white outline-none" />
             </span>
           </label>
 

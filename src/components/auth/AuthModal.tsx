@@ -21,7 +21,11 @@ export const AuthModal: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
     const result = await loginWithCredentials(emailInput, passwordInput);
-    if (!result.success) setErrorMessage(result.error || 'Unable to sign in with those credentials.');
+    if (!result.success) {
+      setErrorMessage(result.error || 'Unable to sign in with those credentials.');
+      return;
+    }
+    setIsAuthModalOpen(false);
   };
 
   return (
@@ -45,13 +49,13 @@ export const AuthModal: React.FC = () => {
           <h3 className="text-lg font-bold text-white font-mono">AUTHENTICATE WORKSTATION</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4">
-          Sign in with your registered member ID or email and password.
+          Sign in with your registered email address and password.
         </p>
 
         {errorMessage && <p className="mb-3 rounded-lg border border-rose-800/60 bg-rose-950/30 p-2.5 text-xs text-rose-300">{errorMessage}</p>}
         <form onSubmit={handleCredentialsSubmit} className="space-y-3 font-mono text-xs">
             <div>
-              <label className="text-slate-300 text-xs font-medium uppercase block mb-1">Member ID or email</label>
+              <label className="text-slate-300 text-xs font-medium uppercase block mb-1">Email address</label>
               <div className="flex items-center rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
                 <Mail className="h-4 w-4 text-slate-500 mr-2" />
                 <input
