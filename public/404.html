@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nexify ProTrade</title>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        if (window.location.pathname !== '/') {
+          params.set('route', window.location.pathname);
+        }
+        var query = params.toString();
+        var target = '/' + (query ? '?' + query : '') + window.location.hash;
+        window.location.replace(target);
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

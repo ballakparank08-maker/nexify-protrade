@@ -18,32 +18,90 @@ import { DepositWithdrawModal } from './components/portfolio/DepositWithdrawModa
 import { PriceAlertModal } from './components/common/PriceAlertModal';
 import { PriceAlertToast } from './components/common/PriceAlertToast';
 import { NexifyLogo } from './components/common/NexifyLogo';
-import { ShieldCheck, Cpu, Layers, ExternalLink } from 'lucide-react';
+import {
+  DEFAULT_ADMIN_DASHBOARD_PATH,
+  DEFAULT_ADMIN_LOGIN_PATH,
+  getCanonicalPathForIntent,
+  resolveRouteIntent,
+} from './utils/navigation';
+import { ShieldCheck } from 'lucide-react';
 
 const MainContent: React.FC = () => {
   const { currentDomain, currentTab, setCurrentDomain, setCurrentTab, isAuthenticated, currentUser } = useTrading();
-  const [adminGatewayOpen, setAdminGatewayOpen] = React.useState(
-    typeof window !== 'undefined' && window.location.hash.replace('#', '').toLowerCase() === 'admin-login'
+  const adminLoginPath = React.useMemo(
+    () => import.meta.env.VITE_HIDDEN_ADMIN_LOGIN_PATH || DEFAULT_ADMIN_LOGIN_PATH,
+    []
   );
-
-  React.useEffect(() => {
-    const syncFromHash = () => {
-      const hash = window.location.hash.replace('#', '').toLowerCase();
-      setAdminGatewayOpen(hash === 'admin-login');
-    };
-    window.addEventListener('hashchange', syncFromHash);
-    return () => window.removeEventListener('hashchange', syncFromHash);
-  }, []);
-
-  React.useEffect(() => {
-    if (adminGatewayOpen && isAuthenticated && currentUser?.role === 'admin') {
-      setCurrentDomain('admin');
-      if (window.location.hash) {
-        history.replaceState(null, '', window.location.pathname + window.location.search);
-      }
-      setAdminGatewayOpen(false);
+  const adminDashboardPath = React.useMemo(
+    () => import.meta.env.VITE_HIDDEN_ADMIN_DASHBOARD_PATH || DEFAULT_ADMIN_DASHBOARD_PATH,
+    []
+  );
+  const resolveIntentFromWindow = React.useCallback(() => {
+    if (typeof window === 'undefined') {
+      return 'landing' as const;
     }
-  }, [adminGatewayOpen, isAuthenticated, currentUser, setCurrentDomain]);
+
+    return resolveRouteIntent({
+      pathname: window.location.pathname,
+      hash: window.location.hash,
+      search: window.location.search,
+      adminLoginPath,
+      adminDashboardPath,
+    });
+  }, [adminDashboardPath, adminLoginPath]);
+  const [routeIntent, setRouteIntent] = React.useState(resolveIntentFromWindow);
+
+  React.useEffect(() => {
+    const syncFromLocation = () => {
+      setRouteIntent(resolveIntentFromWindow());
+    };
+
+    syncFromLocation();
+    window.addEventListener('hashchange', syncFromLocation);
+    window.addEventListener('popstate', syncFromLocation);
+    return () => {
+      window.removeEventListener('hashchange', syncFromLocation);
+      window.removeEventListener('popstate', syncFromLocation);
+    };
+  }, [resolveIntentFromWindow]);
+
+  React.useEffect(() => {
+    const canonicalPath = getCanonicalPathForIntent(routeIntent, adminLoginPath, adminDashboardPath);
+    const searchParams = new URLSearchParams(window.location.search);
+    const hadRouteOverride = searchParams.has('route');
+
+    if (hadRouteOverride) {
+      searchParams.delete('route');
+    }
+
+    const nextSearch = searchParams.toString();
+    const nextUrl = `${canonicalPath}${nextSearch ? `?${nextSearch}` : ''}`;
+
+    if (hadRouteOverride || window.location.hash.toLowerCase() === '#admin-login') {
+      history.replaceState(null, '', nextUrl);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+
+    if (routeIntent === 'admin-login' && isAuthenticated && currentUser?.role === 'admin') {
+      history.replaceState(null, '', adminDashboardPath);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+      setCurrentDomain('admin');
+      return;
+    }
+
+    if (routeIntent === 'admin-dashboard') {
+      if (isAuthenticated && currentUser?.role === 'admin') {
+        setCurrentDomain('admin');
+      } else {
+        history.replaceState(null, '', '/');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        setCurrentDomain('landing');
+      }
+      return;
+    }
+
+    setCurrentDomain('landing');
+  }, [adminDashboardPath, adminLoginPath, currentUser, isAuthenticated, routeIntent, setCurrentDomain]);
 
   return (
     <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col selection:bg-purple-500 selection:text-white bg-tech-grid">
@@ -51,7 +109,7 @@ const MainContent: React.FC = () => {
 
       {/* Main Domain Router View */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {adminGatewayOpen && !(isAuthenticated && currentUser?.role === 'admin') ? (
+        {routeIntent === 'admin-login' && !(isAuthenticated && currentUser?.role === 'admin') ? (
           <LoginPage targetDomain="admin" />
         ) : (
           <>
