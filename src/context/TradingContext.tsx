@@ -191,7 +191,6 @@ interface TradingContextType {
   isAuthenticated: boolean;
   loginWithCredentials: (email: string, password?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
   loginWithWallet: (walletName?: string) => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
-  loginWithDemo: (role: 'trader' | 'admin') => Promise<{ success: boolean; requires2FA?: boolean; tempUser?: UserSession; error?: string }>;
   verifyLogin2FA: (code: string, tempUser: UserSession) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
 
@@ -277,42 +276,6 @@ const INITIAL_PRICE_ALERTS: PriceAlert[] = [
     triggeredPrice: 160.25
   }
 ];
-
-export const DEFAULT_DEMO_TRADER: UserSession = {
-  id: 'usr-trader-01',
-  email: 'marcus.vance@nexifyprotrade.io',
-  name: 'Marcus Vance',
-  role: 'trader',
-  institution: 'Vance Quantitative Alpha (Desk #4)',
-  walletAddress: '0x8f3C9e...7B4A',
-  loginMethod: 'credentials',
-  twoFactorEnabled: false,
-  backupCodes: [],
-  sessionTimeoutMinutes: 30,
-  antiPhishingCode: 'NEXIFY-SECURE-99',
-  whitelistWithdrawals: true,
-  lastLoginTime: 'Sep 06, 2026, 20:30',
-  ipAddress: '198.51.100.42 (Singapore SG1)'
-};
-
-export const DEFAULT_DEMO_ADMIN: UserSession = {
-  id: 'usr-admin-root',
-  email: 'admin@nexifyprotrade.io',
-  name: 'Elena Rostova',
-  role: 'admin',
-  institution: 'Nexify Pro Core Protocol SecOps',
-  walletAddress: '0xA4c21...8F99',
-  loginMethod: 'credentials',
-  twoFactorEnabled: true,
-  twoFactorSecret: 'JBSWY3DPEHPK3PXP',
-  twoFactorVerifiedAt: 'Sep 01, 2026',
-  backupCodes: ['8F92-4A1B', '7C3D-9E5F', '1B2A-3C4D', '5E6F-7A8B'],
-  sessionTimeoutMinutes: 15,
-  antiPhishingCode: 'ROOT-SECOPS-VIP',
-  whitelistWithdrawals: true,
-  lastLoginTime: 'Sep 06, 2026, 19:45',
-  ipAddress: '198.51.100.42 (Singapore SG1)'
-};
 
 export const INITIAL_SECURITY_LOGS: SecurityAuditEntry[] = [
   {
@@ -1684,10 +1647,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   // Authentication & 2FA Implementation
-  const loginWithDemo = async (_role: 'trader' | 'admin') => {
-    return { success: false, error: 'Demo access is disabled. Sign in with your Firebase account.' };
-  };
-
   const loginWithCredentials = async (email: string, password?: string) => {
     if (!isFirebaseConfigured || !firebaseAuth) {
       return { success: false, error: 'Secure authentication is not configured. Contact the site administrator.' };
@@ -2687,7 +2646,6 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         isAuthenticated,
         loginWithCredentials,
         loginWithWallet,
-        loginWithDemo,
         verifyLogin2FA,
         logout,
         enable2FA,

@@ -18,7 +18,6 @@ import {
   ExternalLink,
   ChevronLeft,
   Key,
-  Shield,
   XCircle
 } from 'lucide-react';
 import { useTrading } from '../../context/TradingContext';
@@ -37,13 +36,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
     logout,
     loginWithCredentials, 
     loginWithWallet, 
-    loginWithDemo, 
     verifyLogin2FA, 
     setCurrentDomain,
     addSecurityAuditLog
   } = useTrading();
 
-  const [authMethod, setAuthMethod] = useState<'quick' | 'credentials' | 'wallet'>('credentials');
+  const [authMethod, setAuthMethod] = useState<'credentials' | 'wallet'>('credentials');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -89,31 +87,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
       }, 150);
     }
   }, [is2FAStep, useBackupCode]);
-
-  const handleQuickLogin = async (role: 'trader' | 'admin') => {
-    if (targetDomain === 'admin' && role !== 'admin') {
-      setErrorMessage('Access Denied: Trader accounts do not possess administrative permissions. Only authorized administrators with Root SecOps clearance may access the Admin Dashboard.');
-      addSecurityAuditLog('Rejected trader demo login attempt on Admin portal', 'failed');
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsLoading(true);
-    try {
-      const res = await loginWithDemo(role);
-      if (res.requires2FA && res.tempUser) {
-        setTempUser(res.tempUser);
-        setIs2FAStep(true);
-        setTotpDigits(['', '', '', '', '', '']);
-      } else if (!res.success) {
-        setErrorMessage(res.error || 'Demo access is unavailable.');
-      }
-    } catch {
-      setErrorMessage('Failed to initiate login session.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -365,19 +338,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
             /* Primary Authentication Screen */
             <div className="space-y-6">
               {/* Method Selector Tabs */}
-              <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-900/90 p-1 border border-slate-800 text-xs font-mono">
-                <button
-                  type="button"
-                  id="auth-tab-quick"
-                  onClick={() => { setAuthMethod('quick'); setErrorMessage(null); }}
-                  className={`py-2 px-2 rounded-lg font-bold transition-all text-center ${
-                    authMethod === 'quick'
-                      ? 'bg-purple-950/80 text-purple-300 border border-purple-800/50 shadow'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  Demo Accounts
-                </button>
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-900/90 p-1 border border-slate-800 text-xs font-mono">
                 <button
                   type="button"
                   id="auth-tab-credentials"
@@ -404,100 +365,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
                 </button>
               </div>
 
-              {/* TAB 1: Fast One-Click Institutional Demo */}
-              {authMethod === 'quick' && (
-                <div className="space-y-3.5">
-                  <div className="rounded-xl border border-slate-800 bg-[#060a14] p-3 text-xs text-slate-300">
-                    <span className="text-purple-300 font-bold font-mono">
-                      {targetDomain === 'admin' ? 'ADMINISTRATIVE ACCESS CONTROL:' : 'INSTITUTIONAL EVALUATION MODE:'}
-                    </span>
-                    <p className="text-xs text-slate-300 mt-1">
-                      {targetDomain === 'admin'
-                        ? 'Only designated Root Administrators can access administrative controls. Trader accounts are blocked from this portal.'
-                        : 'Choose an authenticated persona below to immediately access the trading terminal or audit root admin controls.'}
-                    </p>
-                  </div>
-
-                  {/* Pro Trader Button */}
-                  <button
-                    type="button"
-                    id="login-demo-trader-btn"
-                    disabled={isLoading}
-                    onClick={() => handleQuickLogin('trader')}
-                    className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left group ${
-                      targetDomain === 'admin'
-                        ? 'border-slate-800/80 bg-slate-900/40 opacity-70 hover:border-rose-500/50'
-                        : 'border-slate-800 bg-slate-900/60 hover:border-purple-500/60 hover:bg-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className={`h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 ${
-                        targetDomain === 'admin' 
-                          ? 'bg-slate-800/80 border border-slate-700 text-slate-400' 
-                          : 'bg-purple-950/80 border border-purple-800/50 text-purple-400'
-                      }`}>
-                        <KeyRound className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-bold text-white font-mono">Marcus Vance (Pro Trader)</span>
-                          {targetDomain === 'admin' ? (
-                            <span className="rounded-md bg-rose-950/80 border border-rose-800/60 px-2 py-0.5 text-xs text-rose-300 font-mono font-bold">
-                              LOCKED (NON-ADMIN)
-                            </span>
-                          ) : (
-                            <span className="rounded-md bg-emerald-950/80 border border-emerald-800/50 px-2 py-0.5 text-xs text-emerald-300 font-mono">
-                              Desk #4
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-slate-300 font-mono">
-                          {targetDomain === 'admin' 
-                            ? 'Trader role • Blocked from Institutional Risk & KYC' 
-                            : 'marcus.vance@nexifyprotrade.io • $28,450 Portfolio'}
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-slate-400 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
-                  </button>
-
-                  {/* Root Admin Button */}
-                  <button
-                    type="button"
-                    id="login-demo-admin-btn"
-                    disabled={isLoading}
-                    onClick={() => handleQuickLogin('admin')}
-                    className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-left group ${
-                      targetDomain === 'admin'
-                        ? 'border-amber-500/70 bg-amber-950/25 shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:border-amber-400 hover:bg-amber-950/40'
-                        : 'border-amber-900/40 bg-amber-950/10 hover:border-amber-500/60 hover:bg-amber-950/20'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-xl bg-amber-950/80 border border-amber-800/50 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform">
-                        <Shield className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-bold text-white font-mono">Elena Rostova (Root SecOps)</span>
-                          <span className="rounded-md bg-amber-950/90 border border-amber-700 px-2 py-0.5 text-xs text-amber-300 font-mono font-bold">
-                            Admin
-                          </span>
-                          <span className="rounded-md bg-purple-950/80 border border-purple-800/50 px-2 py-0.5 text-xs text-purple-300 font-mono font-semibold">
-                            Google 2FA
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-300 font-mono">
-                          admin@nexifyprotrade.io • Full KYC & Risk Engine Control
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-amber-400 group-hover:translate-x-1 transition-all" />
-                  </button>
-                </div>
-              )}
-
-              {/* TAB 2: Credentials Login */}
+              {/* Credentials Login */}
               {authMethod === 'credentials' && (
                 <form onSubmit={handleCredentialsSubmit} className="space-y-4">
                   <div>
@@ -512,13 +380,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ targetDomain }) => {
                         required
                         value={emailInput}
                         onChange={e => setEmailInput(e.target.value)}
-                        placeholder={targetDomain === 'admin' ? "admin@nexifyprotrade.io" : "trader@hedgefund.com"}
+                        placeholder="name@example.com"
                         className="w-full bg-transparent outline-none font-mono text-xs text-white"
                       />
                     </div>
                     {targetDomain === 'admin' && (
                       <span className="text-xs text-amber-400 font-mono mt-1 block">
-                        * Restricted: Only whitelisted root admin accounts permitted (e.g. admin@nexifyprotrade.io)
+                        * Restricted: Only accounts assigned the administrator role can access this area.
                       </span>
                     )}
                   </div>

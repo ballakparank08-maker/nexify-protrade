@@ -4,7 +4,6 @@ import {
   StakingPool, 
   CryptoLoanPosition, 
   TradingPossibilitySignal, 
-  KYCUserRecord, 
   Transaction,
   CandleStick,
   OrderBookEntry,
@@ -430,64 +429,6 @@ export const INITIAL_TRANSACTIONS: Transaction[] = [
     status: 'completed',
     network: 'Ethereum Mainnet',
     timestamp: '2026-08-10 16:45'
-  }
-];
-
-export const INITIAL_KYC_USERS: KYCUserRecord[] = [
-  {
-    id: 'usr-901',
-    fullName: 'Alexander Vance',
-    email: 'a.vance@vanguard-cap.io',
-    walletAddress: '0x71C...399E',
-    country: 'Switzerland',
-    tier: 'Tier 3 (Institutional)',
-    kycStatus: 'verified',
-    submittedDate: '2026-08-20',
-    tradingVolumeUsd: 14850000
-  },
-  {
-    id: 'usr-902',
-    fullName: 'Elena Rostova',
-    email: 'elena.rost@crypto-alpha.de',
-    walletAddress: '0x32A...810B',
-    country: 'Germany',
-    tier: 'Tier 2 (Pro)',
-    kycStatus: 'pending_review',
-    submittedDate: '2026-09-04',
-    tradingVolumeUsd: 650000
-  },
-  {
-    id: 'usr-903',
-    fullName: 'Kenji Takahashi',
-    email: 'takahashi.k@tokyo-quant.jp',
-    walletAddress: '0x99F...662D',
-    country: 'Japan',
-    tier: 'Tier 3 (Institutional)',
-    kycStatus: 'pending_review',
-    submittedDate: '2026-09-03',
-    tradingVolumeUsd: 2840000
-  },
-  {
-    id: 'usr-904',
-    fullName: 'Marcus Sterling',
-    email: 'm.sterling@uk-fintech.co.uk',
-    walletAddress: '0x55B...223A',
-    country: 'United Kingdom',
-    tier: 'Tier 2 (Pro)',
-    kycStatus: 'verified',
-    submittedDate: '2026-07-15',
-    tradingVolumeUsd: 1120000
-  },
-  {
-    id: 'usr-905',
-    fullName: 'Sarah Jenkins',
-    email: 's.jenkins@bay-hedge.com',
-    walletAddress: '0x18D...994E',
-    country: 'United States',
-    tier: 'Tier 1 (Basic)',
-    kycStatus: 'rejected',
-    submittedDate: '2026-08-29',
-    tradingVolumeUsd: 45000
   }
 ];
 
