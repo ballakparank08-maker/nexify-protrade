@@ -251,58 +251,64 @@ export const CryptoLoanTerminal: React.FC = () => {
             </div>
 
             <div className="mt-4 space-y-3 font-mono text-xs">
-              {loans.map(loan => (
-                <div 
-                  key={loan.id}
-                  className="rounded-xl border border-slate-800 bg-[#060a14] p-4 transition-all hover:border-slate-700"
-                >
-                  <div className="flex items-center justify-between border-b border-slate-800/60 pb-2 mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-white text-sm">Loan #{loan.id}</span>
-                      <span className="text-xs text-slate-400">{loan.startDate}</span>
+              {loans.length === 0 ? (
+                <p className="rounded-xl border border-slate-800 bg-[#060a14] px-4 py-6 text-center text-slate-400">
+                  No active loans or loan history yet.
+                </p>
+              ) : (
+                loans.map(loan => (
+                  <div 
+                    key={loan.id}
+                    className="rounded-xl border border-slate-800 bg-[#060a14] p-4 transition-all hover:border-slate-700"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-800/60 pb-2 mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-bold text-white text-sm">Loan #{loan.id}</span>
+                        <span className="text-xs text-slate-400">{loan.startDate}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                        loan.status === 'active' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                      }`}>
+                        {loan.status.toUpperCase()}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                      loan.status === 'active' ? 'bg-emerald-950 text-emerald-300' : 'bg-slate-800 text-slate-400'
-                    }`}>
-                      {loan.status.toUpperCase()}
-                    </span>
-                  </div>
 
-                  <div className="grid grid-cols-2 gap-3 py-1">
-                    <div>
-                      <div className="text-slate-300 text-xs">COLLATERAL LOCKED</div>
-                      <div className="text-white font-bold">
-                        {loan.collateralAmount} {loan.collateralAsset} (${loan.collateralUsdValue.toFixed(2)})
+                    <div className="grid grid-cols-2 gap-3 py-1">
+                      <div>
+                        <div className="text-slate-300 text-xs">COLLATERAL LOCKED</div>
+                        <div className="text-white font-bold">
+                          {loan.collateralAmount} {loan.collateralAsset} (${loan.collateralUsdValue.toFixed(2)})
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-300 text-xs">BORROWED DEBT</div>
+                        <div className="text-amber-400 font-bold">
+                          ${loan.borrowedAmount.toFixed(2)} USDT
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-300 text-xs">HEALTH FACTOR (LTV)</div>
+                        <div className="text-emerald-400 font-bold">{loan.ltv}%</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-300 text-xs">LIQUIDATION THRESHOLD</div>
+                        <div className="text-rose-400 font-bold">${loan.liquidationPrice.toFixed(2)}</div>
                       </div>
                     </div>
-                    <div>
-                      <div className="text-slate-300 text-xs">BORROWED DEBT</div>
-                      <div className="text-amber-400 font-bold">
-                        ${loan.borrowedAmount.toFixed(2)} USDT
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-slate-300 text-xs">HEALTH FACTOR (LTV)</div>
-                      <div className="text-emerald-400 font-bold">{loan.ltv}%</div>
-                    </div>
-                    <div>
-                      <div className="text-slate-300 text-xs">LIQUIDATION THRESHOLD</div>
-                      <div className="text-rose-400 font-bold">${loan.liquidationPrice.toFixed(2)}</div>
-                    </div>
-                  </div>
 
-                  {loan.status === 'active' && (
-                    <div className="mt-3 pt-3 border-t border-slate-800/60 flex justify-end">
-                      <button
-                        onClick={() => handleRepay(loan.id)}
-                        className="rounded-lg bg-purple-950/80 border border-purple-800/60 px-3 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-900/60 transition-colors"
-                      >
-                        Repay Loan & Unlock Collateral
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {loan.status === 'active' && (
+                      <div className="mt-3 pt-3 border-t border-slate-800/60 flex justify-end">
+                        <button
+                          onClick={() => handleRepay(loan.id)}
+                          className="rounded-lg bg-purple-950/80 border border-purple-800/60 px-3 py-1.5 text-xs font-semibold text-purple-300 hover:bg-purple-900/60 transition-colors"
+                        >
+                          Repay Loan & Unlock Collateral
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
