@@ -6,6 +6,7 @@ import {defineConfig} from 'vite';
 export default defineConfig(() => {
   return {
     base: '/nexify-protrade/',
+    envPrefix: ['VITE_', 'SUPABASE_'],
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
