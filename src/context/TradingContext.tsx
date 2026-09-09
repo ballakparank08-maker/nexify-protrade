@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { 
   AppDomain, 
   AppTab, 
@@ -50,7 +48,7 @@ import {
   LiveDepthPayload,
   SUPPORTED_MARKET_ASSETS
 } from '../services/marketDataService';
-import { firebaseAuth, firestore, isFirebaseConfigured } from '../services/firebase';
+import { isSupabaseConfigured, supabase } from '../services/supabase';
 
 interface TradingContextType {
   // Navigation & Domain
@@ -515,30 +513,24 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return baseWallet;
   });
 
-  const loadFirebaseProfile = useCallback(async (userId: string, email: string) => {
-    if (!firestore) return { success: false, error: 'Secure authentication is not configured.' };
+  const loadSupabaseProfile = useCallback(async (userId: string, email: string) => {
+    if (!supabase) return { success: false, error: 'Secure authentication is not configured.' };
 
-    const profileRef = doc(firestore, 'profiles', userId);
-    let profileSnapshot = await getDoc(profileRef);
-    if (!profileSnapshot.exists()) {
-      await setDoc(profileRef, {
-        email,
-        fullName: email,
-        role: 'trader',
-        createdAt: new Date().toISOString()
-      });
-      profileSnapshot = await getDoc(profileRef);
-    }
-    const profile = profileSnapshot.data();
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'trader')) {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role')
+      .eq('id', userId)
+      .single();
+
+    if (error || !profile) {
       setCurrentUser(null);
       return { success: false, error: 'Your secure profile could not be loaded. Contact an administrator.' };
     }
 
     const account: UserSession = {
-      id: userId,
+      id: profile.id,
       email: profile.email || email,
-      name: profile.fullName || email,
+      name: profile.full_name || email,
       role: profile.role,
       loginMethod: 'credentials',
       twoFactorEnabled: false,
@@ -546,7 +538,7 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       sessionTimeoutMinutes: 30,
       whitelistWithdrawals: true,
       lastLoginTime: 'Just now',
-      ipAddress: 'Firebase authenticated session'
+      ipAddress: 'Supabase authenticated session'
     };
     setCurrentUser(account);
     setWallet(previous => ({ ...previous, isConnected: true }));
@@ -554,19 +546,27 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   useEffect(() => {
-    if (!firebaseAuth) return;
+    if (!supabase) return;
 
-    const unsubscribe = onAuthStateChanged(firebaseAuth, user => {
-      if (user?.email) {
-        void loadFirebaseProfile(user.uid, user.email);
+    const loadSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user.email) {
+        await loadSupabaseProfile(session.user.id, session.user.email);
+      }
+    };
+
+    void loadSession();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user.email) {
+        void loadSupabaseProfile(session.user.id, session.user.email);
       } else {
         setCurrentUser(null);
         setWallet(previous => ({ ...previous, isConnected: false }));
       }
     });
 
-    return unsubscribe;
-  }, [loadFirebaseProfile]);
+    return () => subscription.unsubscribe();
+  }, [loadSupabaseProfile]);
 
   const [userOrders, setUserOrders] = useState<UserOrder[]>([
     {
@@ -1673,30 +1673,30 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Authentication & 2FA Implementation
   const loginWithDemo = async (_role: 'trader' | 'admin') => {
-    return { success: false, error: 'Demo access is disabled. Sign in with your Firebase account.' };
+    return { success: false, error: 'Demo access is disabled. Sign in with your Supabase account.' };
   };
 
   const loginWithCredentials = async (email: string, password?: string) => {
-    if (!isFirebaseConfigured || !firebaseAuth) {
+    if (!isSupabaseConfigured || !supabase) {
       return { success: false, error: 'Secure authentication is not configured. Contact the site administrator.' };
     }
     if (!password) return { success: false, error: 'A password is required.' };
 
-    try {
-      const credential = await signInWithEmailAndPassword(firebaseAuth, email.trim(), password);
-      if (!credential.user.email) {
-        return { success: false, error: 'Unable to read the signed-in account email.' };
-      }
-      const result = await loadFirebaseProfile(credential.user.uid, credential.user.email);
-      if (!result.success) {
-        await signOut(firebaseAuth);
-        return { success: false, error: result.error };
-      }
-      addSecurityAuditLog(`Firebase credential sign-in success: ${credential.user.email}`, 'success');
-      return { success: true, requires2FA: false };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unable to sign in with those credentials.' };
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password
+    });
+    if (error || !data.user?.email) {
+      return { success: false, error: error?.message || 'Unable to sign in with those credentials.' };
     }
+
+    const result = await loadSupabaseProfile(data.user.id, data.user.email);
+    if (!result.success) {
+      await supabase.auth.signOut();
+      return { success: false, error: result.error };
+    }
+    addSecurityAuditLog(`Supabase credential sign-in success: ${data.user.email}`, 'success');
+    return { success: true, requires2FA: false };
   };
 
   const loginWithWallet = async (_walletName = 'MetaMask') => {
@@ -1704,14 +1704,14 @@ export const TradingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const verifyLogin2FA = async (_code: string, _tempUser: UserSession) => {
-    return { success: false, error: 'Use Firebase MFA to verify two-factor authentication.' };
+    return { success: false, error: 'Use Supabase MFA to verify two-factor authentication.' };
   };
 
   const logout = () => {
     if (currentUser) {
-      addSecurityAuditLog(`Firebase session terminated (${currentUser.email})`, 'success');
+      addSecurityAuditLog(`Supabase session terminated (${currentUser.email})`, 'success');
     }
-    if (firebaseAuth) void signOut(firebaseAuth);
+    void supabase?.auth.signOut();
     setCurrentUser(null);
     setWallet(prev => ({ ...prev, isConnected: false }));
   };
