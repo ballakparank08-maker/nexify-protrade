@@ -253,16 +253,18 @@ export interface UserSession {
   role: 'trader' | 'admin';
   institution?: string;
   walletAddress?: string;
-  loginMethod: 'credentials' | 'wallet' | 'api_key';
-  twoFactorEnabled: boolean;
+  loginMethod: 'credentials';
+  twoFactorEnabled?: boolean;
   twoFactorSecret?: string;
   twoFactorVerifiedAt?: string;
-  backupCodes: string[];
-  sessionTimeoutMinutes: number;
+  backupCodes?: string[];
+  sessionTimeoutMinutes?: number;
   antiPhishingCode?: string;
-  whitelistWithdrawals: boolean;
-  lastLoginTime: string;
-  ipAddress: string;
+  whitelistWithdrawals?: boolean;
+  lastLoginTime?: string;
+  ipAddress?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SecurityAuditEntry {

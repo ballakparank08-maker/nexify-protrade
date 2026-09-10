@@ -21,7 +21,17 @@ import { NexifyLogo } from './components/common/NexifyLogo';
 import { ShieldCheck, Cpu, Layers, ExternalLink } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { currentDomain, currentTab, setCurrentDomain, setCurrentTab, isAuthenticated, currentUser } = useTrading();
+  const {
+    currentDomain,
+    currentTab,
+    setCurrentDomain,
+    setCurrentTab,
+    isAuthenticated,
+    currentUser,
+    authReady,
+    adminAccessVerified,
+    adminAccessLoading,
+  } = useTrading();
   const [adminGatewayOpen, setAdminGatewayOpen] = React.useState(
     typeof window !== 'undefined' && window.location.hash.replace('#', '').toLowerCase() === 'admin-login'
   );
@@ -51,6 +61,20 @@ const MainContent: React.FC = () => {
 
       {/* Main Domain Router View */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {!authReady ? (
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <div className="rounded-2xl border border-slate-800 bg-[#090e1e]/90 px-6 py-5 text-center font-mono text-sm text-slate-300 shadow-2xl">
+              Restoring your secure session...
+            </div>
+          </div>
+        ) : adminAccessLoading && currentUser?.role === 'admin' && currentDomain === 'admin' ? (
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <div className="rounded-2xl border border-amber-800/60 bg-amber-950/20 px-6 py-5 text-center font-mono text-sm text-amber-200 shadow-2xl">
+              Verifying administrator access...
+            </div>
+          </div>
+        ) : (
+        <>
         {adminGatewayOpen && !(isAuthenticated && currentUser?.role === 'admin') ? (
           <LoginPage targetDomain="admin" />
         ) : (
@@ -58,7 +82,7 @@ const MainContent: React.FC = () => {
             {currentDomain === 'landing' && <LandingPage />}
 
             {currentDomain === 'admin' && (
-              !isAuthenticated || currentUser?.role !== 'admin' ? (
+              !isAuthenticated || currentUser?.role !== 'admin' || !adminAccessVerified ? (
                 <LandingPage />
               ) : (
                 <AdminDashboard />
@@ -146,6 +170,8 @@ const MainContent: React.FC = () => {
           )
         )}
           </>
+        )}
+        </>
         )}
       </main>
 

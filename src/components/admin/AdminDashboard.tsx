@@ -189,12 +189,6 @@ export const AdminDashboard: React.FC = () => {
           <span className="hidden md:inline-block rounded-md bg-amber-950 border border-amber-700 px-2 py-0.5 text-xs font-mono font-bold text-amber-300">
             ROOT TIER 0
           </span>
-          {currentUser.twoFactorEnabled && (
-            <span className="hidden md:inline-flex items-center space-x-1 rounded-md bg-emerald-950 border border-emerald-800 px-2 py-0.5 text-xs font-mono font-bold text-emerald-300">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>2FA VERIFIED</span>
-            </span>
-          )}
         </div>
 
         <div className="flex items-center space-x-2">
